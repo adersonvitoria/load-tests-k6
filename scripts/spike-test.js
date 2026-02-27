@@ -52,3 +52,9 @@ export default function () {
 
   sleep(0.5);
 }
+
+export function handleSummary(data) {
+  return {
+    'reports/spike-test-latest.json': JSON.stringify(data, null, 2),
+  };
+}

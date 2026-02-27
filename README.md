@@ -1,6 +1,6 @@
 # Load Tests - k6
 
-Projeto de testes de carga e performance utilizando [k6](https://k6.io/) para avaliação de desempenho de APIs REST.
+Projeto de testes de carga e performance utilizando [k6](https://k6.io/) para avaliação de desempenho de APIs REST, com geração de relatórios [Allure](https://allurereport.org/).
 
 ## Descrição
 
@@ -9,6 +9,7 @@ Este projeto contém scripts de teste de carga para validar a performance de API
 - **Load Test**: Teste de carga com 500 usuários simultâneos por 5 minutos
 - **Stress Test**: Teste de estresse para encontrar o ponto de ruptura (até 2000 VUs)
 - **Spike Test**: Teste de pico para avaliar comportamento sob surtos repentinos de tráfego
+- **Allure Reports**: Conversão automática dos resultados k6 para relatórios Allure com métricas detalhadas
 
 API alvo: [Reqres.in](https://reqres.in) (API pública de mock)
 
@@ -17,10 +18,16 @@ API alvo: [Reqres.in](https://reqres.in) (API pública de mock)
 ```
 load-tests-k6/
 ├── scripts/
-│   ├── load-test.js       # Teste de carga (500 VUs, 5 min)
-│   ├── stress-test.js     # Teste de estresse (até 2000 VUs)
-│   └── spike-test.js      # Teste de pico (spike de 10→500 VUs)
-├── reports/               # Relatórios gerados (gitignored)
+│   ├── load-test.js                # Teste de carga (500 VUs, 5 min)
+│   ├── stress-test.js              # Teste de estresse (até 2000 VUs)
+│   ├── spike-test.js               # Teste de pico (spike de 10→500 VUs)
+│   └── generate-allure-report.js   # Conversor k6 → Allure Results
+├── reports/                        # Relatórios JSON do k6 (gitignored)
+├── allure-results/                 # Resultados Allure gerados (gitignored)
+├── allure-report/                  # Relatório Allure HTML (gitignored)
+├── package.json                    # Dependências para Allure
+├── .env                            # API key (gitignored)
+├── .env.example                    # Exemplo de configuração
 ├── .gitignore
 └── README.md
 ```
@@ -30,10 +37,14 @@ load-tests-k6/
 | Tecnologia | Versão  |
 |------------|---------|
 | k6         | >= 0.50 |
+| Node.js    | >= 20.x |
+| Allure CLI | >= 2.x  |
 
 ## Pré-requisitos
 
 - [k6](https://k6.io/docs/get-started/installation/) instalado no sistema
+- [Node.js](https://nodejs.org/) versão 20+ (para geração de Allure Reports)
+- Java Runtime (JRE) 8+ para o Allure CLI
 
 ### Instalação do k6
 
@@ -61,11 +72,24 @@ sudo apt-get update
 sudo apt-get install k6
 ```
 
+### Instalação das dependências Node.js
+
+```bash
+npm install
+```
+
 ## Como Executar os Testes
 
 ### Configurar API Key
 
-A API Reqres.in requer uma chave gratuita. Obtenha em [app.reqres.in](https://app.reqres.in/?next=/api-keys) e passe como variável de ambiente:
+Configure a chave de API no arquivo `.env`:
+
+```bash
+cp .env.example .env
+# Editar .env com sua API key
+```
+
+Ou passe como variável de ambiente:
 
 ```bash
 # Windows (PowerShell)
@@ -95,7 +119,7 @@ Fases:
 ### Teste de Estresse
 
 ```bash
-k6 run scripts/stress-test.js
+k6 run -e REQRES_API_KEY=sua_api_key scripts/stress-test.js
 ```
 
 Escala progressivamente de 100 até **2000 VUs** para identificar o ponto de ruptura.
@@ -103,16 +127,57 @@ Escala progressivamente de 100 até **2000 VUs** para identificar o ponto de rup
 ### Teste de Pico (Spike)
 
 ```bash
-k6 run scripts/spike-test.js
+k6 run -e REQRES_API_KEY=sua_api_key scripts/spike-test.js
 ```
 
 Simula um surto repentino de tráfego (10 → 500 VUs em 10 segundos).
 
-### Exportar resultados em JSON
+## Allure Reports
+
+### Fluxo completo
 
 ```bash
-k6 run scripts/load-test.js --summary-export=reports/summary.json
+# 1. Executar o teste (gera JSON em reports/)
+k6 run -e REQRES_API_KEY=sua_api_key scripts/load-test.js
+
+# 2. Converter resultados para Allure + gerar relatório HTML
+npm run allure:generate
+
+# 3. Visualizar relatório
+npm run allure:open
 ```
+
+### Servir relatório temporário
+
+```bash
+npm run allure:serve
+```
+
+### O que é gerado no Allure Report
+
+Para cada tipo de teste (load, stress, spike), o conversor gera os seguintes test cases no Allure:
+
+| Test Case | Descrição | Severidade |
+|-----------|-----------|------------|
+| Validação de Thresholds | Verifica se todos os critérios de aprovação foram atingidos | critical |
+| Métricas de Performance HTTP | Análise de tempos de resposta (avg, med, p90, p95, p99, max) | blocker |
+| Taxa de Erros | Taxa de requisições com falha e erros customizados | critical |
+| Throughput e Capacidade | Total de requisições, req/s, iterações e VUs | normal |
+| Checks por Grupo | Validações funcionais executadas durante o teste | normal |
+| Métricas por Endpoint | Performance detalhada de cada endpoint testado | normal |
+
+### Anotações Allure
+
+Cada test case inclui:
+
+- **Epic**: "Testes de Carga"
+- **Feature**: Nome do teste (ex: "Load Test - 500 VUs")
+- **Story**: Aspecto específico (ex: "Validação de Thresholds")
+- **Severity**: Blocker, Critical ou Normal
+- **Owner**: "QA Team"
+- **Tags**: Performance, LoadTest, k6
+- **Steps**: Cada métrica e check como um step com status passed/failed
+- **Description**: Descrição em Markdown com tabelas de métricas
 
 ## Métricas Monitoradas
 
@@ -172,3 +237,5 @@ Após a execução, o k6 apresenta um resumo com:
 - **Checks por grupo**: Validação funcional durante o teste de carga
 - **Sleep entre requests**: Simula think time realista do usuário
 - **Múltiplos cenários**: Load, Stress e Spike para cobertura completa
+- **Allure Reports**: Visualização rica dos resultados com steps, severidades e descrições
+- **handleSummary**: Exportação automática de JSON para processamento posterior

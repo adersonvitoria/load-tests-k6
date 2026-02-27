@@ -3,3 +3,5 @@ reports/*.html
 node_modules/
 .idea/
 .env
+allure-results/
+allure-report/
