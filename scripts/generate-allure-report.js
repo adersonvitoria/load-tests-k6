@@ -379,9 +379,46 @@ if (totalResults > 0) {
   writeEnvironmentInfo();
   writeCategoriesJson();
   console.log(`\n✔ ${totalResults} resultados Allure gerados em: ${RESULTS_DIR}`);
-  console.log('  Execute: npm run allure:generate && npm run allure:open');
 } else {
-  console.log('\n⚠ Nenhum arquivo de sumário encontrado.');
-  console.log('  Execute os testes k6 primeiro:');
-  console.log('  k6 run scripts/load-test.js --summary-export=reports/load-test-latest.json');
+  console.log('\n⚠ Nenhum arquivo de sumário encontrado. Gerando relatório placeholder...');
+
+  const placeholderResult = createTestResult({
+    name: 'Testes de Carga - Aguardando Execução',
+    fullName: 'Testes de Carga > Aguardando Execução',
+    status: 'skipped',
+    statusDetails: {
+      message: 'Nenhum resultado de teste k6 disponível. Execute os testes primeiro.',
+    },
+    start: Date.now() - 1000,
+    stop: Date.now(),
+    labels: [
+      { name: 'epic', value: 'Testes de Carga' },
+      { name: 'feature', value: 'Execução Pendente' },
+      { name: 'severity', value: 'normal' },
+      { name: 'owner', value: 'QA Team' },
+      { name: 'tag', value: 'k6' },
+    ],
+    steps: [
+      createStep('Verificar existência de resultados k6', 'skipped', Date.now() - 1000, Date.now()),
+    ],
+    description:
+      'Nenhum arquivo de sumário k6 foi encontrado.\n\n' +
+      '**Para executar os testes:**\n\n' +
+      '```bash\n' +
+      '# Instalar k6 (Windows)\n' +
+      'choco install k6\n' +
+      '# ou\n' +
+      'winget install k6 --source winget\n\n' +
+      '# Executar teste de carga\n' +
+      'k6 run -e REQRES_API_KEY=sua_key scripts/load-test.js\n\n' +
+      '# Gerar relatório Allure\n' +
+      'npm run allure:generate\n' +
+      '```',
+  });
+
+  const filename = `${placeholderResult.uuid}-result.json`;
+  fs.writeFileSync(path.join(RESULTS_DIR, filename), JSON.stringify(placeholderResult, null, 2));
+  writeEnvironmentInfo();
+  writeCategoriesJson();
+  console.log('✔ Relatório placeholder gerado em:', RESULTS_DIR);
 }
