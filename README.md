@@ -86,23 +86,23 @@ Configure a chave de API no arquivo `.env`:
 
 ```bash
 cp .env.example .env
-# Editar .env com sua API key
+# A key já está configurada no .env.example (REQRES_API_KEY=reqres_7b4880206ffa4e6b8429a7291998c7c5)
 ```
 
 Ou passe como variável de ambiente:
 
 ```bash
 # Windows (PowerShell)
-$env:REQRES_API_KEY="sua_api_key_aqui"
+$env:REQRES_API_KEY="reqres_7b4880206ffa4e6b8429a7291998c7c5"
 
 # Linux/macOS
-export REQRES_API_KEY="sua_api_key_aqui"
+export REQRES_API_KEY="reqres_7b4880206ffa4e6b8429a7291998c7c5"
 ```
 
 ### Teste de Carga (principal)
 
 ```bash
-k6 run -e REQRES_API_KEY=sua_api_key scripts/load-test.js
+k6 run -e REQRES_API_KEY=reqres_7b4880206ffa4e6b8429a7291998c7c5 scripts/load-test.js
 ```
 
 Simula **500 usuários simultâneos** por **5 minutos** com ramp-up e ramp-down graduais.
@@ -127,7 +127,7 @@ Escala progressivamente de 100 até **2000 VUs** para identificar o ponto de rup
 ### Teste de Pico (Spike)
 
 ```bash
-k6 run -e REQRES_API_KEY=sua_api_key scripts/spike-test.js
+k6 run -e REQRES_API_KEY=reqres_7b4880206ffa4e6b8429a7291998c7c5 scripts/spike-test.js
 ```
 
 Simula um surto repentino de tráfego (10 → 500 VUs em 10 segundos).
@@ -138,7 +138,7 @@ Simula um surto repentino de tráfego (10 → 500 VUs em 10 segundos).
 
 ```bash
 # 1. Executar o teste (gera JSON em reports/)
-k6 run -e REQRES_API_KEY=sua_api_key scripts/load-test.js
+k6 run -e REQRES_API_KEY=reqres_7b4880206ffa4e6b8429a7291998c7c5 scripts/load-test.js
 
 # 2. Converter resultados para Allure + gerar relatório HTML
 npm run allure:generate
