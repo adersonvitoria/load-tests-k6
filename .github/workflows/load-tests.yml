@@ -44,6 +44,7 @@ env:
   K6_DURATION: ${{ github.event.inputs.duration || '' }}
   K6_RAMP_UP: ${{ github.event.inputs.ramp_up || '' }}
   K6_RATE: ${{ github.event.inputs.rate || '' }}
+  REQRES_KEY: ${{ secrets.REQRES_API_KEY || 'reqres_7b4880206ffa4e6b8429a7291998c7c5' }}
 
 jobs:
   performance-tests:
@@ -79,11 +80,12 @@ jobs:
         run: mkdir -p reports
 
       - name: Run Load Test
+        id: load_test
         if: ${{ github.event.inputs.scenario == 'load' || github.event.inputs.scenario == 'all' || github.event_name == 'schedule' }}
         continue-on-error: true
         run: |
           k6 run \
-            -e REQRES_API_KEY=${{ secrets.REQRES_API_KEY || 'reqres_7b4880206ffa4e6b8429a7291998c7c5' }} \
+            -e REQRES_API_KEY=${{ env.REQRES_KEY }} \
             -e K6_BASE_URL=${{ env.K6_BASE_URL }} \
             -e K6_VUS=${{ github.event_name == 'schedule' && '50' || env.K6_VUS }} \
             -e K6_DURATION=${{ github.event_name == 'schedule' && '1m' || env.K6_DURATION }} \
@@ -91,11 +93,12 @@ jobs:
             scripts/load-test.js
 
       - name: Run Stress Test
+        id: stress_test
         if: ${{ github.event.inputs.scenario == 'stress' || github.event.inputs.scenario == 'all' }}
         continue-on-error: true
         run: |
           k6 run \
-            -e REQRES_API_KEY=${{ secrets.REQRES_API_KEY || 'reqres_7b4880206ffa4e6b8429a7291998c7c5' }} \
+            -e REQRES_API_KEY=${{ env.REQRES_KEY }} \
             -e K6_BASE_URL=${{ env.K6_BASE_URL }} \
             -e K6_VUS=${{ env.K6_VUS }} \
             -e K6_DURATION=${{ env.K6_DURATION }} \
@@ -103,22 +106,24 @@ jobs:
             scripts/stress-test.js
 
       - name: Run Spike Test
+        id: spike_test
         if: ${{ github.event.inputs.scenario == 'spike' || github.event.inputs.scenario == 'all' }}
         continue-on-error: true
         run: |
           k6 run \
-            -e REQRES_API_KEY=${{ secrets.REQRES_API_KEY || 'reqres_7b4880206ffa4e6b8429a7291998c7c5' }} \
+            -e REQRES_API_KEY=${{ env.REQRES_KEY }} \
             -e K6_BASE_URL=${{ env.K6_BASE_URL }} \
             -e K6_VUS=${{ env.K6_VUS }} \
             -e K6_DURATION=${{ env.K6_DURATION }} \
             scripts/spike-test.js
 
       - name: Run Scenarios Test (arrival-rate)
+        id: scenarios_test
         if: ${{ github.event.inputs.scenario == 'scenarios' || github.event.inputs.scenario == 'all' }}
         continue-on-error: true
         run: |
           k6 run \
-            -e REQRES_API_KEY=${{ secrets.REQRES_API_KEY || 'reqres_7b4880206ffa4e6b8429a7291998c7c5' }} \
+            -e REQRES_API_KEY=${{ env.REQRES_KEY }} \
             -e K6_BASE_URL=${{ env.K6_BASE_URL }} \
             -e K6_RATE=${{ env.K6_RATE }} \
             -e K6_DURATION=${{ env.K6_DURATION }} \
@@ -157,5 +162,48 @@ jobs:
           path: allure-report/
           retention-days: 30
 
-      - name: Verify thresholds passed
-        run: echo "All k6 thresholds passed - pipeline is green."
+      - name: Quality Gate - Threshold Validation
+        if: always()
+        run: |
+          echo "============================================"
+          echo "  QUALITY GATE - Performance Thresholds"
+          echo "============================================"
+          GATE_FAILED=false
+
+          if [ "${{ steps.load_test.outcome }}" == "failure" ]; then
+            echo "FAIL: Load Test - thresholds exceeded"
+            GATE_FAILED=true
+          elif [ "${{ steps.load_test.outcome }}" == "success" ]; then
+            echo "PASS: Load Test"
+          fi
+
+          if [ "${{ steps.stress_test.outcome }}" == "failure" ]; then
+            echo "FAIL: Stress Test - thresholds exceeded"
+            GATE_FAILED=true
+          elif [ "${{ steps.stress_test.outcome }}" == "success" ]; then
+            echo "PASS: Stress Test"
+          fi
+
+          if [ "${{ steps.spike_test.outcome }}" == "failure" ]; then
+            echo "FAIL: Spike Test - thresholds exceeded"
+            GATE_FAILED=true
+          elif [ "${{ steps.spike_test.outcome }}" == "success" ]; then
+            echo "PASS: Spike Test"
+          fi
+
+          if [ "${{ steps.scenarios_test.outcome }}" == "failure" ]; then
+            echo "FAIL: Scenarios Test - thresholds exceeded"
+            GATE_FAILED=true
+          elif [ "${{ steps.scenarios_test.outcome }}" == "success" ]; then
+            echo "PASS: Scenarios Test"
+          fi
+
+          echo "============================================"
+
+          if [ "$GATE_FAILED" == "true" ]; then
+            echo "RESULT: PIPELINE BLOCKED - One or more performance thresholds were not met."
+            echo "Review the Allure Report artifact for detailed analysis."
+            exit 1
+          else
+            echo "RESULT: PIPELINE APPROVED - All performance thresholds passed."
+          fi
