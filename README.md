@@ -1,15 +1,18 @@
 # Load Tests - k6
 
-Projeto de testes de carga e performance utilizando [k6](https://k6.io/) para avaliação de desempenho de APIs REST, com geração de relatórios [Allure](https://allurereport.org/).
+Projeto de testes de carga e performance utilizando [k6](https://k6.io/) para avaliação de desempenho de APIs REST, com geração de relatórios [Allure](https://allurereport.org/), CI/CD via GitHub Actions e integração com stacks de observabilidade.
 
 ## Descrição
 
 Este projeto contém scripts de teste de carga para validar a performance de APIs sob diferentes condições de tráfego:
 
-- **Load Test**: Teste de carga com 500 usuários simultâneos por 5 minutos
-- **Stress Test**: Teste de estresse para encontrar o ponto de ruptura (até 2000 VUs)
+- **Load Test**: Teste de carga com VUs configuráveis (default 500) por duração parametrizável
+- **Stress Test**: Teste de estresse para encontrar o ponto de ruptura (default até 2000 VUs)
 - **Spike Test**: Teste de pico para avaliar comportamento sob surtos repentinos de tráfego
-- **Allure Reports**: Conversão automática dos resultados k6 para relatórios Allure com métricas detalhadas
+- **Scenarios Test**: Cenários realistas com `constant-arrival-rate` e `ramping-arrival-rate` para modelar throughput
+- **Allure Reports**: Conversão automática dos resultados k6 para relatórios Allure
+- **GitHub Actions**: Pipeline com execução manual, agendada e quality gate por thresholds
+- **Observabilidade**: Integração com InfluxDB, Prometheus e Grafana Cloud
 
 API alvo: [Reqres.in](https://reqres.in) (API pública de mock)
 
@@ -17,17 +20,22 @@ API alvo: [Reqres.in](https://reqres.in) (API pública de mock)
 
 ```
 load-tests-k6/
+├── .github/
+│   └── workflows/
+│       └── load-tests.yml             # Pipeline CI/CD (manual + nightly)
 ├── scripts/
-│   ├── load-test.js                # Teste de carga (500 VUs, 5 min)
-│   ├── stress-test.js              # Teste de estresse (até 2000 VUs)
-│   ├── spike-test.js               # Teste de pico (spike de 10→500 VUs)
-│   └── generate-allure-report.js   # Conversor k6 → Allure Results
-├── reports/                        # Relatórios JSON do k6 (gitignored)
-├── allure-results/                 # Resultados Allure gerados (gitignored)
-├── allure-report/                  # Relatório Allure HTML (gitignored)
-├── package.json                    # Dependências para Allure
-├── .env                            # API key (gitignored)
-├── .env.example                    # Exemplo de configuração
+│   ├── load-test.js                   # Teste de carga (VU-based, parametrizável)
+│   ├── stress-test.js                 # Teste de estresse (escalonamento progressivo)
+│   ├── spike-test.js                  # Teste de pico (spike repentino)
+│   ├── scenarios-test.js              # Cenários arrival-rate (throughput-based)
+│   └── generate-allure-report.js      # Conversor k6 → Allure Results
+├── docs/
+│   └── observability.md               # Guia InfluxDB/Prometheus/Grafana
+├── reports/                           # Relatórios JSON do k6 (gitignored)
+├── allure-results/                    # Resultados Allure gerados (gitignored)
+├── allure-report/                     # Relatório Allure HTML (gitignored)
+├── package.json
+├── .env.example                       # Variáveis de configuração
 ├── .gitignore
 └── README.md
 ```
@@ -78,15 +86,37 @@ sudo apt-get install k6
 npm install
 ```
 
+## Parametrização via Variáveis de Ambiente
+
+Todos os scripts suportam parametrização via variáveis de ambiente, permitindo ajustar o workload sem alterar código:
+
+| Variável | Descrição | Default | Scripts |
+|----------|-----------|---------|---------|
+| `K6_BASE_URL` | URL base da API alvo | `https://reqres.in/api` | Todos |
+| `K6_VUS` | Número de Virtual Users | Varia por script | load, stress, spike |
+| `K6_DURATION` | Duração do teste | Varia por script | Todos |
+| `K6_RAMP_UP` | Duração do ramp-up | `30s` | load, scenarios |
+| `K6_RATE` | Taxa req/s (arrival-rate) | `20` | scenarios |
+| `REQRES_API_KEY` | API key da Reqres.in | - | Todos |
+
+**Exemplo de uso:**
+
+```bash
+# Load test com 200 VUs por 2 minutos apontando para outra API
+k6 run -e K6_VUS=200 -e K6_DURATION=2m -e K6_BASE_URL=https://minha-api.com/api \
+  -e REQRES_API_KEY=sua_key scripts/load-test.js
+
+# Scenarios test com throughput de 50 req/s
+k6 run -e K6_RATE=50 -e K6_DURATION=5m \
+  -e REQRES_API_KEY=sua_key scripts/scenarios-test.js
+```
+
 ## Como Executar os Testes
 
 ### Configurar API Key
 
-Configure a chave de API no arquivo `.env`:
-
 ```bash
 cp .env.example .env
-# A key já está configurada no .env.example (REQRES_API_KEY=reqres_7b4880206ffa4e6b8429a7291998c7c5)
 ```
 
 Ou passe como variável de ambiente:
@@ -99,46 +129,103 @@ $env:REQRES_API_KEY="reqres_7b4880206ffa4e6b8429a7291998c7c5"
 export REQRES_API_KEY="reqres_7b4880206ffa4e6b8429a7291998c7c5"
 ```
 
-### Teste de Carga (principal)
+### Teste de Carga (VU-based)
 
 ```bash
-k6 run -e REQRES_API_KEY=reqres_7b4880206ffa4e6b8429a7291998c7c5 scripts/load-test.js
+k6 run -e REQRES_API_KEY=sua_key scripts/load-test.js
 ```
 
-Simula **500 usuários simultâneos** por **5 minutos** com ramp-up e ramp-down graduais.
+Default: **500 VUs** por **3 minutos** com ramp-up gradual.
 
-Fases:
-| Fase      | Duração | VUs  | Descrição           |
-|-----------|---------|------|---------------------|
-| Ramp-up 1 | 30s     | 100  | Aquecimento         |
-| Ramp-up 2 | 30s     | 250  | Crescimento         |
-| Ramp-up 3 | 30s     | 500  | Atingindo pico      |
-| Sustain   | 3m      | 500  | Carga sustentada    |
-| Ramp-down | 1m      | 0    | Encerramento        |
+| Fase | Duração | VUs | Descrição |
+|------|---------|-----|-----------|
+| Ramp-up 1 | 30s | 20% do total | Aquecimento |
+| Ramp-up 2 | 30s | 50% do total | Crescimento |
+| Ramp-up 3 | 30s | 100% | Atingindo pico |
+| Sustain | 3m | 100% | Carga sustentada |
+| Ramp-down | 1m | 0 | Encerramento |
 
 ### Teste de Estresse
 
 ```bash
-k6 run -e REQRES_API_KEY=sua_api_key scripts/stress-test.js
+k6 run -e REQRES_API_KEY=sua_key scripts/stress-test.js
 ```
 
-Escala progressivamente de 100 até **2000 VUs** para identificar o ponto de ruptura.
+Escala progressivamente de 5% até **100%** do `K6_VUS` (default 2000) para encontrar o ponto de ruptura.
 
 ### Teste de Pico (Spike)
 
 ```bash
-k6 run -e REQRES_API_KEY=reqres_7b4880206ffa4e6b8429a7291998c7c5 scripts/spike-test.js
+k6 run -e REQRES_API_KEY=sua_key scripts/spike-test.js
 ```
 
-Simula um surto repentino de tráfego (10 → 500 VUs em 10 segundos).
+Simula um surto repentino de tráfego de baseline para pico (default 500 VUs em 10 segundos).
+
+### Teste de Cenários (Arrival-Rate)
+
+```bash
+k6 run -e REQRES_API_KEY=sua_key scripts/scenarios-test.js
+```
+
+Utiliza executors avançados do k6 para modelar **throughput real** em vez de apenas VUs:
+
+| Cenário | Executor | Descrição |
+|---------|----------|-----------|
+| `constant_throughput` | `constant-arrival-rate` | Taxa fixa de req/s durante todo o teste |
+| `ramping_throughput` | `ramping-arrival-rate` | Taxa crescente de req/s com estágios |
+| `soak_baseline` | `constant-arrival-rate` | Carga baixa contínua (soak/baseline) |
+
+### Executar todos os testes
+
+```bash
+npm run test:all
+```
+
+## GitHub Actions (CI/CD)
+
+### Execução Manual (workflow_dispatch)
+
+1. Vá em **Actions > Performance Tests (k6)** no repositório
+2. Clique em **Run workflow**
+3. Configure os parâmetros:
+   - **Cenário**: load, stress, spike, scenarios ou all
+   - **VUs**: Número de Virtual Users (opcional)
+   - **Duration**: Duração do teste (opcional)
+   - **Base URL**: URL da API alvo (opcional)
+   - **Ramp-up**: Duração do ramp-up (opcional)
+   - **Rate**: Taxa req/s para arrival-rate (opcional)
+
+### Execução Agendada (Nightly)
+
+A pipeline executa automaticamente de segunda a sexta às 03:00 UTC com o cenário `load` e configurações default.
+
+### Quality Gate (Threshold Gating)
+
+Se qualquer threshold do k6 falhar, o step do k6 retorna exit code != 0, quebrando a pipeline automaticamente. Isso garante que builds com performance degradada não passem.
+
+### Artefatos Gerados
+
+| Artefato | Conteúdo | Retenção |
+|----------|----------|----------|
+| `k6-json-reports-{run}` | JSONs raw do k6 com todas as métricas | 30 dias |
+| `allure-results-{run}` | Resultados Allure para histórico | 30 dias |
+| `allure-report-{run}` | Relatório HTML completo | 30 dias |
+
+### Secrets Necessários
+
+| Secret | Descrição |
+|--------|-----------|
+| `REQRES_API_KEY` | API key da Reqres.in |
+| `INFLUXDB_URL` | URL do InfluxDB (opcional, para observabilidade) |
+| `PROMETHEUS_RW_URL` | URL do Prometheus remote write (opcional) |
 
 ## Allure Reports
 
 ### Fluxo completo
 
 ```bash
-# 1. Executar o teste (gera JSON em reports/)
-k6 run -e REQRES_API_KEY=reqres_7b4880206ffa4e6b8429a7291998c7c5 scripts/load-test.js
+# 1. Executar o teste
+k6 run -e REQRES_API_KEY=sua_key scripts/load-test.js
 
 # 2. Converter resultados para Allure + gerar relatório HTML
 npm run allure:generate
@@ -147,15 +234,9 @@ npm run allure:generate
 npm run allure:open
 ```
 
-### Servir relatório temporário
-
-```bash
-npm run allure:serve
-```
-
 ### O que é gerado no Allure Report
 
-Para cada tipo de teste (load, stress, spike), o conversor gera os seguintes test cases no Allure:
+Para cada tipo de teste, o conversor gera os seguintes test cases:
 
 | Test Case | Descrição | Severidade |
 |-----------|-----------|------------|
@@ -166,76 +247,88 @@ Para cada tipo de teste (load, stress, spike), o conversor gera os seguintes tes
 | Checks por Grupo | Validações funcionais executadas durante o teste | normal |
 | Métricas por Endpoint | Performance detalhada de cada endpoint testado | normal |
 
-### Anotações Allure
+## Observabilidade
 
-Cada test case inclui:
+O projeto suporta exportação de métricas em tempo real para dashboards. Veja o guia completo em [`docs/observability.md`](docs/observability.md).
 
-- **Epic**: "Testes de Carga"
-- **Feature**: Nome do teste (ex: "Load Test - 500 VUs")
-- **Story**: Aspecto específico (ex: "Validação de Thresholds")
-- **Severity**: Blocker, Critical ou Normal
-- **Owner**: "QA Team"
-- **Tags**: Performance, LoadTest, k6
-- **Steps**: Cada métrica e check como um step com status passed/failed
-- **Description**: Descrição em Markdown com tabelas de métricas
+### Resumo rápido
+
+**InfluxDB + Grafana (local):**
+```bash
+k6 run --out influxdb=http://localhost:8086/k6 \
+  -e REQRES_API_KEY=sua_key scripts/load-test.js
+```
+
+**Prometheus Remote Write:**
+```bash
+k6 run --out experimental-prometheus-rw \
+  -e K6_PROMETHEUS_RW_SERVER_URL=http://localhost:9090/api/v1/write \
+  -e REQRES_API_KEY=sua_key scripts/load-test.js
+```
+
+**Grafana Cloud:**
+```bash
+k6 run --out experimental-prometheus-rw \
+  -e K6_PROMETHEUS_RW_SERVER_URL=https://prometheus-prod-xx.grafana.net/api/prom/push \
+  -e K6_PROMETHEUS_RW_USERNAME=seu_user_id \
+  -e K6_PROMETHEUS_RW_PASSWORD=seu_token \
+  -e REQRES_API_KEY=sua_key scripts/load-test.js
+```
 
 ## Métricas Monitoradas
 
 ### Thresholds (Critérios de Aprovação)
 
-| Métrica              | Critério                        |
-|----------------------|---------------------------------|
-| http_req_duration    | p(95) < 2s, p(99) < 5s         |
-| http_req_failed      | Taxa de falha < 5%              |
-| errors               | Taxa de erro customizada < 10%  |
-| list_users_duration  | p(95) < 3s                      |
-| single_user_duration | p(95) < 2s                      |
-| create_user_duration | p(95) < 3s                      |
-| login_duration       | p(95) < 2s                      |
+| Métrica | Critério |
+|---------|----------|
+| http_req_duration | p(95) < 2s, p(99) < 5s |
+| http_req_failed | Taxa de falha < 5% |
+| errors | Taxa de erro customizada < 10% |
+| list_users_duration | p(95) < 3s |
+| single_user_duration | p(95) < 2s |
+| create_user_duration | p(95) < 3s |
+| login_duration | p(95) < 2s |
+| browsing_duration | p(95) < 2.5s (scenarios) |
+| api_call_duration | p(95) < 3s (scenarios) |
 
-### Métricas Customizadas
+### Thresholds por Cenário (scenarios-test)
 
-- **errors**: Taxa de erros por check
-- **list_users_duration**: Tempo de resposta do endpoint de listagem
-- **single_user_duration**: Tempo de resposta do endpoint de usuário único
-- **create_user_duration**: Tempo de resposta do endpoint de criação
-- **login_duration**: Tempo de resposta do endpoint de login
-- **total_requests**: Contador total de requisições
+| Cenário | Métrica | Critério |
+|---------|---------|----------|
+| constant_throughput | http_req_duration | p(95) < 2.5s |
+| ramping_throughput | http_req_duration | p(95) < 3.5s |
+| soak_baseline | http_req_duration | p(95) < 2s |
 
 ## Endpoints Testados
 
-| Método | Endpoint         | Descrição                |
-|--------|------------------|--------------------------|
-| GET    | /api/users       | Listagem de usuários     |
-| GET    | /api/users/:id   | Busca de usuário por ID  |
-| POST   | /api/users       | Criação de usuário       |
-| POST   | /api/login       | Autenticação             |
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | /api/users | Listagem de usuários |
+| GET | /api/users/:id | Busca de usuário por ID |
+| POST | /api/users | Criação de usuário |
+| POST | /api/login | Autenticação |
 
-## Análise de Resultados
+## Scripts NPM
 
-Após a execução, o k6 apresenta um resumo com:
-
-- **http_req_duration**: Distribuição dos tempos de resposta (avg, med, p90, p95, p99, max)
-- **http_reqs**: Total de requisições e taxa (req/s)
-- **http_req_failed**: Percentual de requisições com falha
-- **iterations**: Total de iterações completadas
-- **vus**: Número de Virtual Users ao longo do tempo
-- **checks**: Taxa de verificações aprovadas/reprovadas
-
-### Possíveis Gargalos Identificáveis
-
-1. **Aumento de latência sob carga**: Se p95 > 2s, indica saturação do servidor
-2. **Taxa de erro crescente**: Se erros > 5%, o servidor não suporta a carga
-3. **Timeout**: Requisições que excedem o timeout indicam indisponibilidade
-4. **Degradação progressiva**: Comparar tempos do ramp-up vs sustain indica se há acúmulo de conexões
+| Comando | Descrição |
+|---------|-----------|
+| `npm run test:load` | Executa teste de carga |
+| `npm run test:stress` | Executa teste de estresse |
+| `npm run test:spike` | Executa teste de pico |
+| `npm run test:scenarios` | Executa teste de cenários (arrival-rate) |
+| `npm run test:all` | Executa todos os testes sequencialmente |
+| `npm run allure:generate` | Gera relatório Allure a partir dos JSONs |
+| `npm run allure:open` | Abre relatório Allure no navegador |
+| `npm run allure:serve` | Serve relatório Allure temporário |
 
 ## Boas Práticas Aplicadas
 
 - **Ramp-up gradual**: Evita sobrecarga repentina, simulando crescimento natural
+- **Parametrização via env**: Workload configurável sem alterar código
+- **Arrival-rate scenarios**: Modela throughput real, não apenas VUs
+- **Threshold gating**: Pipeline quebra se critérios de performance não forem atingidos
 - **Métricas customizadas**: Monitoramento granular por endpoint
-- **Thresholds definidos**: Critérios objetivos de aprovação/reprovação
-- **Checks por grupo**: Validação funcional durante o teste de carga
-- **Sleep entre requests**: Simula think time realista do usuário
-- **Múltiplos cenários**: Load, Stress e Spike para cobertura completa
-- **Allure Reports**: Visualização rica dos resultados com steps, severidades e descrições
-- **handleSummary**: Exportação automática de JSON para processamento posterior
+- **Múltiplos cenários**: Load, Stress, Spike e Arrival-rate para cobertura completa
+- **Observabilidade**: Integração com InfluxDB, Prometheus e Grafana Cloud
+- **Allure Reports**: Visualização rica dos resultados
+- **CI/CD**: Execução automatizada com artifacts e quality gates

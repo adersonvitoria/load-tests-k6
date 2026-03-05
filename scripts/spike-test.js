@@ -5,15 +5,18 @@ import { Rate, Trend } from 'k6/metrics';
 const errorRate = new Rate('errors');
 const spikeResponseTime = new Trend('spike_response_time', true);
 
-// Spike test: simular pico repentino de tráfego
+const SPIKE_VUS = parseInt(__ENV.K6_VUS) || 500;
+const BASELINE_VUS = Math.max(Math.floor(SPIKE_VUS * 0.02), 5);
+const DURATION = __ENV.K6_DURATION || '1m';
+
 export const options = {
   stages: [
-    { duration: '30s', target: 10 },      // Tráfego normal baixo
-    { duration: '10s', target: 500 },     // Spike repentino para 500 VUs
-    { duration: '1m', target: 500 },      // Manter pico por 1 minuto
-    { duration: '10s', target: 10 },      // Queda para normalidade
-    { duration: '30s', target: 10 },      // Recuperação
-    { duration: '10s', target: 0 },       // Encerramento
+    { duration: '30s', target: BASELINE_VUS },
+    { duration: '10s', target: SPIKE_VUS },
+    { duration: DURATION, target: SPIKE_VUS },
+    { duration: '10s', target: BASELINE_VUS },
+    { duration: '30s', target: BASELINE_VUS },
+    { duration: '10s', target: 0 },
   ],
 
   thresholds: {
@@ -24,7 +27,7 @@ export const options = {
   summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)', 'count'],
 };
 
-const BASE_URL = 'https://reqres.in/api';
+const BASE_URL = __ENV.K6_BASE_URL || __ENV.BASE_URL || 'https://reqres.in/api';
 const HEADERS = {
   'Content-Type': 'application/json',
   'x-api-key': __ENV.REQRES_API_KEY || '',

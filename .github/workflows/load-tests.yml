@@ -1,0 +1,157 @@
+name: Performance Tests (k6)
+
+on:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: 'Cenário de teste'
+        required: true
+        default: 'load'
+        type: choice
+        options:
+          - load
+          - stress
+          - spike
+          - scenarios
+          - all
+      vus:
+        description: 'Virtual Users (sobrescreve o default do script)'
+        required: false
+        default: ''
+      duration:
+        description: 'Duração do teste (ex: 5m, 10m)'
+        required: false
+        default: ''
+      base_url:
+        description: 'Base URL da API alvo'
+        required: false
+        default: 'https://reqres.in/api'
+      ramp_up:
+        description: 'Duração do ramp-up (ex: 1m, 2m)'
+        required: false
+        default: ''
+      rate:
+        description: 'Taxa de requisições/s (cenário arrival-rate)'
+        required: false
+        default: ''
+
+  schedule:
+    - cron: '0 3 * * 1-5'
+
+env:
+  K6_BASE_URL: ${{ github.event.inputs.base_url || 'https://reqres.in/api' }}
+  K6_VUS: ${{ github.event.inputs.vus || '' }}
+  K6_DURATION: ${{ github.event.inputs.duration || '' }}
+  K6_RAMP_UP: ${{ github.event.inputs.ramp_up || '' }}
+  K6_RATE: ${{ github.event.inputs.rate || '' }}
+
+jobs:
+  performance-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+            --keyserver hkp://keyserver.ubuntu.com:80 \
+            --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D68
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
+            | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6 -y
+          k6 version
+
+      - name: Create reports directory
+        run: mkdir -p reports
+
+      - name: Run Load Test
+        if: ${{ github.event.inputs.scenario == 'load' || github.event.inputs.scenario == 'all' || github.event_name == 'schedule' }}
+        run: |
+          k6 run \
+            -e REQRES_API_KEY=${{ secrets.REQRES_API_KEY }} \
+            -e K6_BASE_URL=${{ env.K6_BASE_URL }} \
+            -e K6_VUS=${{ env.K6_VUS }} \
+            -e K6_DURATION=${{ env.K6_DURATION }} \
+            -e K6_RAMP_UP=${{ env.K6_RAMP_UP }} \
+            scripts/load-test.js
+
+      - name: Run Stress Test
+        if: ${{ github.event.inputs.scenario == 'stress' || github.event.inputs.scenario == 'all' }}
+        run: |
+          k6 run \
+            -e REQRES_API_KEY=${{ secrets.REQRES_API_KEY }} \
+            -e K6_BASE_URL=${{ env.K6_BASE_URL }} \
+            -e K6_VUS=${{ env.K6_VUS }} \
+            -e K6_DURATION=${{ env.K6_DURATION }} \
+            -e K6_RAMP_UP=${{ env.K6_RAMP_UP }} \
+            scripts/stress-test.js
+
+      - name: Run Spike Test
+        if: ${{ github.event.inputs.scenario == 'spike' || github.event.inputs.scenario == 'all' }}
+        run: |
+          k6 run \
+            -e REQRES_API_KEY=${{ secrets.REQRES_API_KEY }} \
+            -e K6_BASE_URL=${{ env.K6_BASE_URL }} \
+            -e K6_VUS=${{ env.K6_VUS }} \
+            -e K6_DURATION=${{ env.K6_DURATION }} \
+            scripts/spike-test.js
+
+      - name: Run Scenarios Test (arrival-rate)
+        if: ${{ github.event.inputs.scenario == 'scenarios' || github.event.inputs.scenario == 'all' }}
+        run: |
+          k6 run \
+            -e REQRES_API_KEY=${{ secrets.REQRES_API_KEY }} \
+            -e K6_BASE_URL=${{ env.K6_BASE_URL }} \
+            -e K6_RATE=${{ env.K6_RATE }} \
+            -e K6_DURATION=${{ env.K6_DURATION }} \
+            -e K6_RAMP_UP=${{ env.K6_RAMP_UP }} \
+            scripts/scenarios-test.js
+
+      - name: Generate Allure Results
+        if: always()
+        run: node scripts/generate-allure-report.js
+
+      - name: Generate Allure HTML Report
+        if: always()
+        run: npx allure generate allure-results -o allure-report --clean
+
+      - name: Upload k6 JSON Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-json-reports-${{ github.run_number }}
+          path: reports/*.json
+          retention-days: 30
+
+      - name: Upload Allure Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-${{ github.run_number }}
+          path: allure-results/
+          retention-days: 30
+
+      - name: Upload Allure HTML Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report-${{ github.run_number }}
+          path: allure-report/
+          retention-days: 30
+
+      - name: Verify thresholds passed
+        run: echo "All k6 thresholds passed - pipeline is green."

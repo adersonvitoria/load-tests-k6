@@ -2,7 +2,6 @@ import http from 'k6/http';
 import { check, sleep, group } from 'k6';
 import { Rate, Trend, Counter } from 'k6/metrics';
 
-// Métricas customizadas
 const errorRate = new Rate('errors');
 const listUsersDuration = new Trend('list_users_duration', true);
 const singleUserDuration = new Trend('single_user_duration', true);
@@ -10,20 +9,23 @@ const createUserDuration = new Trend('create_user_duration', true);
 const loginDuration = new Trend('login_duration', true);
 const totalRequests = new Counter('total_requests');
 
-// Configuração: 500 usuários simultâneos por 5 minutos
+const VUS = parseInt(__ENV.K6_VUS) || 500;
+const DURATION = __ENV.K6_DURATION || '3m';
+const RAMP_UP = __ENV.K6_RAMP_UP || '30s';
+
 export const options = {
   stages: [
-    { duration: '30s', target: 100 },   // Ramp-up gradual
-    { duration: '30s', target: 250 },   // Subindo para metade
-    { duration: '30s', target: 500 },   // Atingindo pico
-    { duration: '3m', target: 500 },    // Sustentando 500 VUs por 3 min
-    { duration: '1m', target: 0 },      // Ramp-down
+    { duration: RAMP_UP, target: Math.floor(VUS * 0.2) },
+    { duration: RAMP_UP, target: Math.floor(VUS * 0.5) },
+    { duration: RAMP_UP, target: VUS },
+    { duration: DURATION, target: VUS },
+    { duration: '1m', target: 0 },
   ],
 
   thresholds: {
-    http_req_duration: ['p(95)<2000', 'p(99)<5000'],  // 95% < 2s, 99% < 5s
-    http_req_failed: ['rate<0.05'],                     // Taxa de erro < 5%
-    errors: ['rate<0.1'],                                // Erros customizados < 10%
+    http_req_duration: ['p(95)<2000', 'p(99)<5000'],
+    http_req_failed: ['rate<0.05'],
+    errors: ['rate<0.1'],
     list_users_duration: ['p(95)<3000'],
     single_user_duration: ['p(95)<2000'],
     create_user_duration: ['p(95)<3000'],
@@ -33,7 +35,7 @@ export const options = {
   summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)', 'count'],
 };
 
-const BASE_URL = 'https://reqres.in/api';
+const BASE_URL = __ENV.K6_BASE_URL || __ENV.BASE_URL || 'https://reqres.in/api';
 const HEADERS = {
   'Content-Type': 'application/json',
   'x-api-key': __ENV.REQRES_API_KEY || '',

@@ -5,15 +5,16 @@ import { Rate, Trend } from 'k6/metrics';
 const errorRate = new Rate('errors');
 const responseDuration = new Trend('response_duration', true);
 
-// Stress test: encontrar o ponto de ruptura da API
+const MAX_VUS = parseInt(__ENV.K6_VUS) || 2000;
+
 export const options = {
   stages: [
-    { duration: '1m', target: 100 },     // Warm-up
-    { duration: '2m', target: 500 },     // Carga normal
-    { duration: '2m', target: 1000 },    // Carga alta
-    { duration: '2m', target: 1500 },    // Carga extrema
-    { duration: '2m', target: 2000 },    // Ponto de ruptura
-    { duration: '1m', target: 0 },       // Ramp-down
+    { duration: '1m', target: Math.floor(MAX_VUS * 0.05) },
+    { duration: '2m', target: Math.floor(MAX_VUS * 0.25) },
+    { duration: '2m', target: Math.floor(MAX_VUS * 0.5) },
+    { duration: '2m', target: Math.floor(MAX_VUS * 0.75) },
+    { duration: '2m', target: MAX_VUS },
+    { duration: '1m', target: 0 },
   ],
 
   thresholds: {
@@ -25,7 +26,7 @@ export const options = {
   summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)', 'count'],
 };
 
-const BASE_URL = 'https://reqres.in/api';
+const BASE_URL = __ENV.K6_BASE_URL || __ENV.BASE_URL || 'https://reqres.in/api';
 const HEADERS = {
   'Content-Type': 'application/json',
   'x-api-key': __ENV.REQRES_API_KEY || '',

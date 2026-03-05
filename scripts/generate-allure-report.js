@@ -9,6 +9,7 @@ const SUMMARY_FILES = [
   { file: 'load-test-latest.json', name: 'Load Test', epic: 'Testes de Carga', feature: 'Load Test - 500 VUs' },
   { file: 'stress-test-latest.json', name: 'Stress Test', epic: 'Testes de Carga', feature: 'Stress Test - 2000 VUs' },
   { file: 'spike-test-latest.json', name: 'Spike Test', epic: 'Testes de Carga', feature: 'Spike Test - Pico Repentino' },
+  { file: 'scenarios-test-latest.json', name: 'Scenarios Test', epic: 'Testes de Carga', feature: 'Scenarios - Arrival Rate' },
 ];
 
 if (!fs.existsSync(RESULTS_DIR)) {
