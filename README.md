@@ -195,13 +195,24 @@ npm run test:all
    - **Ramp-up**: Duração do ramp-up (opcional)
    - **Rate**: Taxa req/s para arrival-rate (opcional)
 
-### Execução Agendada (Nightly)
+### Execução Agendada (Schedule)
 
-A pipeline executa automaticamente de segunda a sexta às 03:00 UTC com o cenário `load` e configurações default.
+A pipeline executa automaticamente todos os dias às **11:40 BRT** (14:40 UTC) com o cenário `load` usando 50 VUs por 1 minuto (configuração reduzida para validação contínua).
 
 ### Quality Gate (Threshold Gating)
 
-Se qualquer threshold do k6 falhar, o step do k6 retorna exit code != 0, quebrando a pipeline automaticamente. Isso garante que builds com performance degradada não passem.
+A pipeline implementa um quality gate real em duas fases:
+
+1. **Execução com tolerância**: Os steps de teste k6 usam `continue-on-error: true`, permitindo que os relatórios Allure e artifacts sejam **sempre gerados**, mesmo quando thresholds falham.
+2. **Validação final**: O step **"Quality Gate - Threshold Validation"** roda após todos os artifacts serem enviados. Ele verifica o `outcome` de cada teste executado:
+   - Se qualquer teste teve thresholds excedidos (k6 exit code 99), o gate exibe `FAIL` para aquele teste
+   - Se todos passaram, exibe `PASS`
+   - Se houver qualquer `FAIL`, o step executa `exit 1`, **quebrando a pipeline com status vermelho**
+
+Isso garante que:
+- Relatórios e artifacts estão **sempre disponíveis** para análise, independente do resultado
+- Builds com performance degradada **não passam** no pipeline
+- O log do Quality Gate indica **exatamente qual teste falhou**
 
 ### Artefatos Gerados
 
@@ -213,11 +224,13 @@ Se qualquer threshold do k6 falhar, o step do k6 retorna exit code != 0, quebran
 
 ### Secrets Necessários
 
-| Secret | Descrição |
-|--------|-----------|
-| `REQRES_API_KEY` | API key da Reqres.in |
-| `INFLUXDB_URL` | URL do InfluxDB (opcional, para observabilidade) |
-| `PROMETHEUS_RW_URL` | URL do Prometheus remote write (opcional) |
+| Secret | Descrição | Obrigatório |
+|--------|-----------|-------------|
+| `REQRES_API_KEY` | API key da Reqres.in | Não (possui fallback interno) |
+| `INFLUXDB_URL` | URL do InfluxDB (para observabilidade) | Não |
+| `PROMETHEUS_RW_URL` | URL do Prometheus remote write | Não |
+
+> A `REQRES_API_KEY` possui fallback automático na pipeline, garantindo que execuções agendadas funcionem mesmo sem o secret configurado.
 
 ## Allure Reports
 
@@ -326,9 +339,9 @@ k6 run --out experimental-prometheus-rw \
 - **Ramp-up gradual**: Evita sobrecarga repentina, simulando crescimento natural
 - **Parametrização via env**: Workload configurável sem alterar código
 - **Arrival-rate scenarios**: Modela throughput real, não apenas VUs
-- **Threshold gating**: Pipeline quebra se critérios de performance não forem atingidos
+- **Quality gate real**: Pipeline gera relatórios mesmo com falha, mas quebra no final se thresholds não forem atingidos
 - **Métricas customizadas**: Monitoramento granular por endpoint
 - **Múltiplos cenários**: Load, Stress, Spike e Arrival-rate para cobertura completa
 - **Observabilidade**: Integração com InfluxDB, Prometheus e Grafana Cloud
 - **Allure Reports**: Visualização rica dos resultados
-- **CI/CD**: Execução automatizada com artifacts e quality gates
+- **CI/CD**: Execução manual e agendada com artifacts, fallback de API key e quality gate final
