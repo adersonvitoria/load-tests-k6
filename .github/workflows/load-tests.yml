@@ -36,7 +36,7 @@ on:
         default: ''
 
   schedule:
-    - cron: '40 14 * * *'
+    - cron: '0 15 * * *'
 
 env:
   K6_BASE_URL: ${{ github.event.inputs.base_url || 'https://reqres.in/api' }}
