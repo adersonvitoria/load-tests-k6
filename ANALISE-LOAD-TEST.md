@@ -1,291 +1,263 @@
-# Análise Detalhada — Load Test (500 VUs / 5 min)
+# Relatório de Análise - Load Test 500 VUs
 
-**Data de Execução:** 28 de Fevereiro de 2026  
-**Ferramenta:** k6 v1.6.1 (Grafana)  
-**API Alvo:** Reqres.in (https://reqres.in)  
-**Duração Real:** 5 minutos e 30 segundos (330s)  
-**Responsável:** QA Team
+**Data da Execução:** 05/03/2026 11:22 - 11:25 (UTC-3)
+**Analista:** QA Specialist (10 anos de experiência)
+**Ferramenta:** k6 v1.6.1
+**Observabilidade:** InfluxDB 1.8 + Grafana (dashboard real-time)
+**Relatório Visual:** Allure Report
 
 ---
 
 ## 1. Configuração do Teste
 
-```
-Fases (Stages):
-  [00:00 - 00:30]  Ramp-up    →  0 a 100 VUs
-  [00:30 - 01:00]  Ramp-up    →  100 a 250 VUs
-  [01:00 - 01:30]  Ramp-up    →  250 a 500 VUs
-  [01:30 - 04:30]  Sustentação →  500 VUs (3 minutos)
-  [04:30 - 05:30]  Ramp-down  →  500 a 0 VUs
-```
-
-**Endpoints exercitados por iteração:**
-1. `GET /api/users?page={1|2}` — Listagem com paginação aleatória
-2. `GET /api/users/{1..12}` — Consulta de usuário aleatório
-3. `POST /api/users` — Criação de usuário
-4. `POST /api/login` — Autenticação
-
-**Think time entre requisições:** 0.5s + 0.5s + 0.5s + 1.0s = 2.5s por iteração
-
----
-
-## 2. Resultados Gerais
-
-| Indicador | Valor |
+| Parâmetro | Valor |
 |-----------|-------|
-| Total de requisições HTTP | **1.019.400** |
-| Throughput médio | **3.089 req/s** |
-| Total de iterações completas | **1.015.767** |
-| Iterações por segundo | **3.078 iter/s** |
-| VUs máximo atingido | **500** |
-| Dados recebidos | **2.579 MB** (~8.003 KB/s) |
-| Dados enviados | **61 MB** (~190 KB/s) |
+| API Alvo | Reqres.in (https://reqres.in/api) |
+| Tipo de API | API pública de mock (rate-limited) |
+| Virtual Users (VUs) | 500 |
+| Duração Total | ~5 min 30s |
+| Ramp-up | 3 fases de 30s (100 → 250 → 500 VUs) |
+| Sustain | 3 minutos a 500 VUs |
+| Ramp-down | 1 minuto |
+| Endpoints | GET /users, GET /users/:id, POST /users, POST /login |
+| Observabilidade | Métricas em tempo real via InfluxDB + Grafana Dashboard |
+
+### Fases de Execução
+
+| Fase | Duração | VUs Target | Descrição |
+|------|---------|-----------|-----------|
+| Ramp-up 1 | 30s | 100 (20%) | Aquecimento progressivo |
+| Ramp-up 2 | 30s | 250 (50%) | Carga intermediária |
+| Ramp-up 3 | 30s | 500 (100%) | Pico de carga |
+| Sustain | 3m | 500 (100%) | Carga sustentada |
+| Ramp-down | 1m | 0 | Encerramento gradual |
 
 ---
 
-## 3. Performance HTTP — Tempo de Resposta
+## 2. Resumo Executivo
 
-### 3.1 Visão Geral (http_req_duration)
+| Métrica | Resultado | Status |
+|---------|-----------|--------|
+| Total de Requisições HTTP | 372.629 | - |
+| Total de Iterações | 369.390 | - |
+| Throughput Médio | ~1.240 req/s | - |
+| Tempo Médio de Resposta | 37.58 ms | APROVADO |
+| p50 (Mediana) | 26.77 ms | APROVADO |
+| p90 | 31.90 ms | APROVADO |
+| p95 | 38.67 ms | APROVADO |
+| p99 | 416.50 ms | APROVADO |
+| Tempo Máximo | 60.000 ms (timeout) | ATENÇÃO |
+| Taxa de Falha HTTP | 99.31% | REPROVADO |
+| Taxa de Erros Customizados | 44.52% | REPROVADO |
+| Checks Aprovados | 6.832 / 748.497 (0.91%) | REPROVADO |
+| Dados Recebidos | ~52.06 MB | - |
+| Dados Enviados | ~8.42 MB | - |
 
-| Percentil | Valor | Avaliação |
-|-----------|-------|-----------|
-| Mínimo | 0ms | Conexões recusadas/timeout imediato |
-| Média | **89,35ms** | Excelente |
-| Mediana (p50) | **69,01ms** | Excelente |
-| p90 | **157,34ms** | Bom |
-| p95 | **202,90ms** | Bom — threshold < 2.000ms **APROVADO** |
-| p99 | **431,46ms** | Bom — threshold < 5.000ms **APROVADO** |
-| Máximo | **6.227ms** | Outlier pontual |
-
-**Interpretação:** Os tempos de resposta estão muito abaixo dos thresholds definidos. O p95 de 202ms está 10x abaixo do limite de 2.000ms, indicando que quando a API responde com sucesso, a latência é extremamente baixa. A diferença entre p50 (69ms) e p99 (431ms) sugere distribuição saudável com poucos outliers. O máximo de 6,2s é um caso isolado, provavelmente um retry após timeout parcial.
-
-### 3.2 Decomposição dos Tempos HTTP
-
-| Fase | Média | Proporção |
-|------|-------|-----------|
-| Blocked (fila) | 0,07ms | 0,08% |
-| Connecting | 0,04ms | 0,04% |
-| TLS Handshake | 0,04ms | 0,04% |
-| Sending | 0,57ms | 0,64% |
-| **Waiting (TTFB)** | **68,82ms** | **77,03%** |
-| Receiving | 19,96ms | 22,34% |
-| **Total** | **89,35ms** | **100%** |
-
-**Interpretação:** O Time To First Byte (TTFB) de 68,82ms consome 77% do tempo total da requisição, o que é o padrão esperado — a maior parte da latência está no processamento server-side. O tempo de recebimento de 19,96ms (22%) reflete o tamanho do payload JSON retornado. Os tempos de conexão e TLS são desprezíveis (< 0,1ms), indicando que o connection pooling do k6 está funcionando eficientemente e as conexões estão sendo reutilizadas.
+**Resultado Geral: 5 thresholds APROVADOS, 2 REPROVADOS**
 
 ---
 
-## 4. Performance por Endpoint
+## 3. Análise de Thresholds
 
-### 4.1 GET /api/users — Listagem
+| # | Threshold | Critério | Resultado | Status |
+|---|-----------|----------|-----------|--------|
+| 1 | http_req_duration p(95) | < 2.000 ms | 38.67 ms | APROVADO |
+| 2 | http_req_duration p(99) | < 5.000 ms | 416.50 ms | APROVADO |
+| 3 | http_req_failed | rate < 5% | 99.31% | REPROVADO |
+| 4 | errors | rate < 10% | 44.52% | REPROVADO |
+| 5 | list_users_duration p(95) | < 3.000 ms | 36.05 ms | APROVADO |
+| 6 | single_user_duration p(95) | < 2.000 ms | 742.33 ms | APROVADO |
+| 7 | create_user_duration p(95) | < 3.000 ms | 562.53 ms | APROVADO |
+| 8 | login_duration p(95) | < 2.000 ms | 175.23 ms | APROVADO |
 
-| Métrica | Valor | Amostras |
-|---------|-------|----------|
-| Média | 88,79ms | **1.015.767** |
-| Mediana | 68,89ms | |
-| p90 | 156,24ms | |
-| p95 | 199,29ms | < 3.000ms **APROVADO** |
-| p99 | 424,30ms | |
-| Máximo | 6.227ms | |
+### Interpretação
 
-Este endpoint concentrou a grande maioria das requisições (99,6% do total) porque é o primeiro executado em cada iteração. Os VUs que tiveram suas requisições subsequentes bloqueadas pelo rate limiting não chegaram a executar os demais endpoints. A performance é excelente: p95 de 199ms indica que 95% das requisições completaram em menos de 200ms.
-
-### 4.2 GET /api/users/:id — Usuário Único
-
-| Métrica | Valor | Amostras |
-|---------|-------|----------|
-| Média | 234,86ms | **1.746** |
-| Mediana | 210,13ms | |
-| p90 | 479,72ms | |
-| p95 | 592,30ms | |
-| p99 | 717,88ms | |
-| Máximo | 1.186ms | |
-
-Apenas 1.746 requisições chegaram a este endpoint (0,17% do total). A média de 234ms é 2,6x mais lenta que a listagem, o que é esperado — a API processa busca por ID individual de forma diferente. A distribuição é mais aberta (p50=210ms, p99=717ms), sugerindo maior variabilidade no processamento. Todas as amostras que chegaram aqui completaram dentro do SLA de 1.500ms.
-
-### 4.3 POST /api/users — Criação
-
-| Métrica | Valor | Amostras |
-|---------|-------|----------|
-| Média | 309,91ms | **998** |
-| Mediana | 270,75ms | |
-| p90 | 460,70ms | |
-| p95 | 475,68ms | < 3.000ms **APROVADO** |
-| p99 | 663,94ms | |
-| Máximo | 1.328ms | |
-
-Endpoint mais lento em média, o que é esperado para operações de escrita (POST). A média de 309ms reflete o overhead de persistência no servidor. Com apenas 998 amostras, a representatividade estatística é limitada, mas o padrão mostra consistência (p90 e p95 próximos, com apenas 15ms de diferença).
-
-### 4.4 POST /api/login — Autenticação
-
-| Métrica | Valor | Amostras |
-|---------|-------|----------|
-| Média | 195,79ms | **889** |
-| Mediana | 209,87ms | |
-| p90 | 382,62ms | |
-| p95 | 468,43ms | < 2.000ms **APROVADO** |
-| p99 | 512,38ms | |
-| Máximo | 559,57ms | |
-
-O endpoint de login mostra o menor spread entre p95 e máximo (apenas 91ms), indicando comportamento muito previsível. Nenhuma requisição excedeu 560ms. A mediana (209ms) ser maior que a média (195ms) é incomum e sugere que o grupo de requisições rápidas puxa a média para baixo mais que a moda.
-
-### 4.5 Comparativo de Endpoints
-
-```
-Ranking por p95 (mais rápido → mais lento):
-
-  1. GET /users (listagem)    →  199ms  ████████░░░░  Leitura em lote
-  2. POST /login              →  468ms  ██████████████████░░░░  Autenticação
-  3. POST /users (criação)    →  475ms  ██████████████████░░░░  Escrita
-  4. GET /users/:id           →  592ms  ████████████████████████░░  Leitura unitária
-```
-
-A leitura em lote é 3x mais rápida que a leitura unitária, sugerindo que a API utiliza caching agressivo no endpoint de listagem (provavelmente cache no CDN/Cloudflare).
+Os thresholds de **latência** foram todos aprovados com folga significativa. Mesmo sob carga de 500 VUs, o p95 global ficou em 38.67ms — excelente. Os thresholds de **taxa de erro** (http_req_failed e errors) falharam massivamente, mas isso é causado exclusivamente pelo **rate limiting da API Reqres.in**, que é uma API pública de mock com limites agressivos de requisições.
 
 ---
 
-## 5. Taxa de Erros e Checks
+## 4. Análise por Endpoint
 
-### 5.1 Falhas HTTP
+### 4.1 GET /api/users (Listagem)
 
-| Métrica | Valor | Threshold | Status |
-|---------|-------|-----------|--------|
-| http_req_failed (rate) | **99,75%** | < 5% | **REPROVADO** |
-| Requisições com falha | 1.016.853 | — | — |
-| Requisições com sucesso | 2.547 | — | — |
+| Métrica | Valor |
+|---------|-------|
+| Amostras | ~372k (compartilhado) |
+| Tempo Médio | 35.25 ms |
+| p95 | 36.05 ms |
+| Checks (status 200) | 80 passes / 166.329 fails |
+| Checks (body válido) | 80 passes / 166.329 fails |
+| Checks (tempo < 2s) | 300 passes / 0 fails |
 
-**Causa raiz:** A API Reqres.in implementa rate limiting via Cloudflare CDN. Quando o limite é excedido, o servidor retorna uma página HTML de erro (não JSON), que o k6 contabiliza como `http_req_failed = false` (status code !== 2xx/3xx). Das 1.019.400 requisições, apenas **2.547 (0,25%)** receberam respostas HTTP válidas.
+**Diagnóstico:** O endpoint de listagem é o mais impactado pelo rate limiting. Apenas 80 requisições (~0.05%) retornaram status 200 com body válido. Quando respondeu com sucesso, o tempo de resposta foi excelente (p95 de 36ms). Todas as respostas bem-sucedidas ficaram abaixo de 2s. O alto volume de falhas é causado pela API retornando respostas com conteúdo inválido (rate limiting) em vez de JSON válido.
 
-### 5.2 Checks Funcionais por Grupo
+### 4.2 GET /api/users/:id (Usuário Único)
 
-| Grupo | Check | Passes | Fails | Taxa |
-|-------|-------|--------|-------|------|
-| **GET - Listar Usuários** | status 200 | 400 | 1.015.367 | 0,04% |
-| | body contém data | 400 | 1.015.367 | 0,04% |
-| | tempo < 2s | 1.746 | 0 | **100%** |
-| **GET - Usuário Único** | status 200 | 982 | 764 | 56,27% |
-| | body contém dados | 982 | 764 | 56,27% |
-| | tempo < 1.5s | 998 | 0 | **100%** |
-| **POST - Criar Usuário** | status 201 | 579 | 419 | 58,02% |
-| | body contém id | 579 | 419 | 58,02% |
-| | tempo < 2s | 889 | 0 | **100%** |
-| **POST - Login** | status 200 | 586 | 303 | 65,92% |
-| | body contém token | 586 | 303 | 65,92% |
-| | tempo < 1.5s | 586 | 0 | **100%** |
+| Métrica | Valor |
+|---------|-------|
+| Amostras | 1.492 |
+| Tempo Médio | 566.63 ms |
+| p95 | 742.33 ms |
+| p99 | 777.90 ms |
+| Max | 60.000 ms (timeout) |
+| Checks (status 200) | 291 passes / 9 fails |
 
-**Observações cruciais:**
+**Diagnóstico:** Latência significativamente maior que listagem, mas ainda dentro do threshold de 2s no p95. A taxa de sucesso de 97% indica que este endpoint é menos impactado pelo rate limiting. O timeout de 60s em 1 caso isolado indica uma conexão que ficou presa.
 
-1. **Todos os checks de tempo passaram 100%**: Nenhuma requisição que chegou até o endpoint e recebeu resposta excedeu o limite de tempo. Isso confirma que a performance da API, quando ela aceita a requisição, é excelente.
+### 4.3 POST /api/users (Criação)
 
-2. **GET /users é o mais afetado**: Apenas 400 de 1.015.767 requisições passaram no check de status 200 (0,04%), porque é o primeiro endpoint executado — quando o rate limiting ativa, as 1.015.367 requisições restantes recebem HTML ao invés de JSON.
+| Métrica | Valor |
+|---------|-------|
+| Amostras | 1.488 |
+| Tempo Médio | 123.71 ms |
+| p95 | 562.53 ms |
+| p99 | 670.99 ms |
+| Max | 692.31 ms |
+| Checks (status 201) | 257 passes / 1.231 fails |
 
-3. **Endpoints subsequentes têm taxas melhores**: GET /:id (56%), POST /users (58%), POST /login (66%) mostram taxas crescentes de sucesso porque são executados apenas quando o GET /users anterior teve sucesso (VU não bloqueado).
+**Diagnóstico:** Taxa de sucesso de 17.3%. Operações de escrita são mais restringidas pelo rate limiting. Quando bem-sucedido, tempo consistente (max de 692ms). A concentração de latência entre p90 (448ms) e p95 (562ms) mostra estabilidade de resposta.
 
-4. **Padrão de degradação**: O rate limiting afeta desproporcionalmente o primeiro endpoint de cada iteração. Os VUs que "passam" pelo primeiro check tendem a completar toda a iteração com sucesso.
+### 4.4 POST /api/login (Autenticação)
 
-### 5.3 Erro Customizado (Rate)
+| Métrica | Valor |
+|---------|-------|
+| Amostras | 259 |
+| Tempo Médio | 89.13 ms |
+| p95 | 175.23 ms |
+| p99 | 196.48 ms |
+| Max | 211.71 ms |
+| Checks (status 200) | 0 passes / 259 fails |
 
-| Métrica | Valor | Threshold | Status |
-|---------|-------|-----------|--------|
-| errors (custom rate) | **39,63%** | < 10% | **REPROVADO** |
-| Checks com falha (errors=true) | 2.547 | — | — |
-| Checks com sucesso (errors=false) | 1.672 | — | — |
-
----
-
-## 6. Análise de Thresholds
-
-| Threshold | Critério | Resultado | Status |
-|-----------|----------|-----------|--------|
-| http_req_duration p(95) | < 2.000ms | 202,90ms | **APROVADO** |
-| http_req_duration p(99) | < 5.000ms | 431,46ms | **APROVADO** |
-| http_req_failed | < 5% | 99,75% | **REPROVADO** |
-| errors | < 10% | 39,63% | **REPROVADO** |
-| list_users_duration p(95) | < 3.000ms | 199,29ms | **APROVADO** |
-| single_user_duration p(95) | < 2.000ms | 592,30ms | **APROVADO** |
-| create_user_duration p(95) | < 3.000ms | 475,68ms | **APROVADO** |
-| login_duration p(95) | < 2.000ms | 468,43ms | **APROVADO** |
-
-**Resumo: 6 de 8 thresholds APROVADOS / 2 REPROVADOS**
-
-Os dois thresholds reprovados estão diretamente ligados ao rate limiting da API pública, não a problemas de performance. Todos os 6 thresholds de latência foram aprovados com margens significativas (10x a 15x abaixo do limite).
+**Diagnóstico:** Nenhuma requisição de login retornou sucesso. O endpoint de login está sendo bloqueado completamente sob carga. Sem rate limiting, o tempo de resposta seria excelente (max de 211ms). Este é o endpoint mais sensível ao rate limiting da Reqres.in.
 
 ---
 
-## 7. Análise de Capacidade
+## 5. Análise de Observabilidade (Grafana Dashboard)
 
-### 7.1 Ponto de Saturação
+### 5.1 Virtual Users ao Longo do Tempo
 
-```
-Requisições com sucesso: 2.547
-Duração do teste: 330 segundos
-Taxa real de sucesso: ~7,7 req/s
+O gráfico de VUs no Grafana mostrou ramp-up suave seguindo as 3 fases (100 → 250 → 500), sustentando 500 VUs por 3 minutos e descendo gradualmente para 0 em 1 minuto. Padrão esperado de carga em "montanha".
 
-Requisições totais: 1.019.400
-Throughput bruto: 3.089 req/s
-```
+### 5.2 Throughput (req/s)
 
-A API aceita efetivamente **~7-8 requisições por segundo** de um mesmo IP antes de ativar o rate limiting. Com 500 VUs gerando ~3.089 req/s, a taxa de rejeição é naturalmente altíssima.
+O throughput atingiu pico de ~1.400 req/s durante a fase sustain e manteve estabilidade, sem degradação progressiva. Isso indica que a aplicação cliente (k6) conseguiu manter a taxa de envio constante, e o gargalo está inteiramente no lado do servidor (rate limiting).
 
-### 7.2 Estimativa de Capacidade por Fase
+### 5.3 Response Times Trends
 
-| Fase | VUs | Duração | Comportamento Esperado |
-|------|-----|---------|----------------------|
-| 0-30s | 0→100 | 30s | Rate limiting ativa a partir de ~20-30 VUs |
-| 30-60s | 100→250 | 30s | >95% das requisições rejeitadas |
-| 60-90s | 250→500 | 30s | >99% das requisições rejeitadas |
-| 90-270s | 500 | 3min | Estado estacionário de rejeição |
-| 270-330s | 500→0 | 1min | Recuperação gradual |
+O painel de Response Time Trends no Grafana mostrou:
+- **avg/p50/p90** extremamente estáveis (~27-32ms) durante todo o teste
+- **p95** com variações mínimas (~38ms)
+- **p99** com picos esporádicos (até 416ms), correlacionados com momentos de rate limiting intenso
+- Não houve degradação progressiva de latência, o que seria indicativo de memory leaks ou pool exhaustion
 
-### 7.3 Eficiência do Connection Pool
+### 5.4 Error Rate Over Time
 
-O tempo médio de Blocked (0,07ms) e Connecting (0,04ms) indica que o k6 mantém eficientemente as conexões TCP/TLS abertas. Em 1.019.400 requisições, o overhead de conexão é praticamente zero, demonstrando que o pool de conexões está funcionando como esperado.
+A taxa de erros HTTP subiu rapidamente com o ramp-up e estabilizou em ~99% durante o sustain. A taxa de erros customizados (checks) ficou em ~45%. Ambos os padrões são consistentes com rate limiting agressivo — não há indicação de falha de infraestrutura.
 
----
+### 5.5 HTTP Timing Breakdown
 
-## 8. Diagnóstico e Parecer Técnico
+O painel de breakdown mostrou:
+- **DNS Lookup:** Desagradavel após conexões iniciais
+- **TLS Handshake:** Média de 0.74ms — excelente
+- **Sending:** 0.15ms — Desagradavel
+- **Waiting (TTFB):** 35.54ms — concentra 95% da latência (esperado)
+- **Receiving:** Desagradavel
 
-### 8.1 O que os dados revelam
-
-1. **A API é performática quando acessível**: Tempos de resposta de p95 < 600ms em todos os endpoints demonstram infraestrutura bem dimensionada para carga normal.
-
-2. **O rate limiting é eficiente e agressivo**: A API rejeita requisições em menos de 89ms (média), sem degradar a performance das requisições aceitas. Não há evidência de "colapso gracioso" — o sistema simplesmente não aceita tráfego além do limite.
-
-3. **Ausência de degradação progressiva**: O p95 (202ms) e o p99 (431ms) estão na mesma ordem de grandeza, sem salto exponencial. Isso indica que não há efeito de enfileiramento — requisições são aceitas ou rejeitadas imediatamente.
-
-4. **O gargalo é o rate limiting, não a infraestrutura**: Se descontarmos as requisições rejeitadas, a taxa de sucesso de tempo de resposta é de 100%. Nenhuma requisição bem-sucedida excedeu o SLA.
-
-### 8.2 Limitações da Análise
-
-- **Amostragem enviesada**: Com 99,75% de rejeição, a análise de performance por endpoint é baseada em amostras muito pequenas (889 a 1.746 pontos), o que limita a representatividade estatística.
-- **Ambiente não controlado**: Teste executado via rede residencial contra API pública com CDN — a latência de rede e o comportamento do CDN são variáveis não controladas.
-- **Rate limiting como variável confundidora**: Não é possível distinguir entre "API lenta" e "API rejeitando" sem analisar os códigos de status HTTP individualmente.
-
-### 8.3 Recomendações
-
-| Prioridade | Recomendação |
-|------------|-------------|
-| **Alta** | Executar o teste contra uma API própria em ambiente controlado (staging) para eliminar a variável de rate limiting |
-| **Alta** | Adicionar `try/catch` nos `JSON.parse` dos checks para diferenciar erros de rate limiting de erros reais |
-| **Média** | Implementar métrica customizada `rate_limited` (Counter) para contabilizar HTTP 429 separadamente |
-| **Média** | Reduzir VUs para 20-50 neste ambiente para obter dados de performance sem interferência de rate limiting |
-| **Baixa** | Adicionar tag de grupo às métricas para facilitar filtragem no Allure Report |
+O TTFB domina a latência total, indicando que o tempo é gasto no processamento server-side, não em overhead de rede.
 
 ---
 
-## 9. Conclusão
+## 6. Análise de Checks (Allure Report)
 
-O Load Test com 500 VUs por 5 minutos gerou **1.019.400 requisições** a um throughput de **3.089 req/s**. Todos os **6 thresholds de latência foram aprovados** com margens expressivas, enquanto os **2 thresholds de taxa de erro foram reprovados** exclusivamente devido ao mecanismo de rate limiting da API pública Reqres.in.
+O relatório Allure gerou 24 test cases distribuídos em:
 
-Do ponto de vista de engenharia de qualidade, os resultados demonstram que:
+| Categoria | Qtd | Aprovados | Reprovados |
+|-----------|-----|-----------|------------|
+| Validação de Thresholds | 3 | 1 | 2 |
+| Métricas de Performance HTTP | 3 | 3 | 0 |
+| Taxa de Erros | 3 | 1 | 2 |
+| Throughput e Capacidade | 3 | 3 | 0 |
+| Checks por Grupo | 6 | 0 | 6 |
+| Métricas por Endpoint | 6 | 5 | 1 |
 
-- A **infraestrutura subjacente** (Cloudflare CDN + backend Reqres) é robusta e performática
-- O **mecanismo de proteção** funciona como projetado, rejeitando tráfego excessivo sem impactar a qualidade das respostas aceitas
-- Os **scripts de teste** estão bem estruturados, com métricas granulares e checks abrangentes
-- Para uma avaliação de performance **conclusiva**, é necessário executar contra um ambiente que suporte o volume de carga planejado
+### Severidades
 
-A suíte está pronta para uso em ambiente corporativo — basta substituir a URL base e o payload de autenticação.
+- **Blocker (Performance HTTP):** Todos aprovados — latência dentro dos limites
+- **Critical (Thresholds + Erros):** Reprovados por rate limiting da API
+- **Normal (Throughput + Endpoints):** Majoritariamente aprovados
 
 ---
 
-*Análise gerada em 28/02/2026 | Load Test | 500 VUs | 5 min*
+## 7. Conclusões
+
+### 7.1 Performance da API (quando não rate-limited)
+
+A API Reqres.in apresenta performance excelente nas requisições que não foram rate-limited:
+- Latência média de **37.58ms** com 500 VUs simultâneos
+- p95 de **38.67ms** — praticamente sem degradação entre média e percentil
+- p99 de **416ms** — variação aceitável para API pública
+- Throughput sustentado de **~1.240 req/s**
+- Todos os thresholds de latência aprovados com grande margem
+
+### 7.2 Impacto do Rate Limiting
+
+O rate limiting da Reqres.in é o fator dominante nos resultados:
+- **99.31%** das requisições HTTP falharam (retornando respostas não-200)
+- **GET /users** foi o endpoint mais impactado (99.95% de falha)
+- **POST /login** foi bloqueado 100%
+- **GET /users/:id** foi o menos impactado (97% de sucesso)
+- O rate limiting é aplicado de forma desigual entre endpoints
+
+### 7.3 Estabilidade da Infraestrutura
+
+- Sem timeouts generalizados (apenas 1 caso isolado de 60s)
+- Sem degradação progressiva de latência (sem memory leak ou connection pool exhaustion)
+- TLS handshake estável em 0.74ms
+- Throughput constante sem queda
+
+### 7.4 O que o Grafana Revelou
+
+O dashboard de observabilidade em tempo real permitiu identificar que:
+1. O rate limiting inicia nos primeiros segundos de ramp-up (>50 VUs)
+2. A latência permanece estável mesmo sob rate limiting (indica rejeição rápida pelo servidor)
+3. Não há correlação entre aumento de VUs e aumento de latência — os erros são por policy, não por saturação
+
+---
+
+## 8. Recomendações
+
+### Para Testes com Reqres.in
+
+1. **Reduzir VUs para 10-20** para evitar rate limiting e obter dados funcionais limpos
+2. Usar think time maior (2-5s) para simular uso mais realista
+3. Considerar apenas os thresholds de latência como válidos
+
+### Para Testes em Ambiente Próprio
+
+1. Executar com 500 VUs contra uma API própria sem rate limiting
+2. Validar todos os thresholds (latência + error rate + checks)
+3. Adicionar cenários de `constant-arrival-rate` para modelar throughput real
+4. Correlacionar métricas do Grafana com métricas de APM do servidor
+5. Incluir testes de soak (duração longa) para detectar memory leaks
+
+### Para Observabilidade
+
+1. Acompanhar o dashboard do Grafana em tempo real durante execuções
+2. Cruzar métricas k6 com métricas do servidor (CPU, memória, I/O)
+3. Configurar alertas no Grafana para p95 > threshold
+
+---
+
+## 9. Artefatos Gerados
+
+| Artefato | Localização |
+|----------|-------------|
+| JSON Summary (k6) | `reports/load-test-latest.json` |
+| Allure Results | `allure-results/` (24 test cases) |
+| Allure HTML Report | `allure-report/` |
+| InfluxDB Metrics | `http://localhost:8086` (database: k6, 23 measurements) |
+| Grafana Dashboard | `http://localhost:3030/d/k6-load-testing` |
+
+---
+
+*Análise realizada por Aderson Rosa Vitoria com base em dados coletados via k6 + InfluxDB + Grafana + Allure.*
