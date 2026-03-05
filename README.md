@@ -197,7 +197,7 @@ npm run test:all
 
 ### Execução Agendada (Schedule)
 
-A pipeline executa automaticamente todos os dias às **12:00 BRT** (15:00 UTC) com o cenário `load` usando 50 VUs por 1 minuto (configuração reduzida para validação contínua).
+A pipeline executa automaticamente todos os dias às **12:55 BRT** (15:55 UTC) com o cenário `load` usando 50 VUs por 1 minuto (configuração reduzida para validação contínua).
 
 ### Quality Gate (Threshold Gating)
 
