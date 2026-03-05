@@ -1,0 +1,275 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "Overview",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "influxdb", "uid": "" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 50 }, { "color": "red", "value": 100 }] },
+          "unit": "none"
+        }
+      },
+      "gridPos": { "h": 5, "w": 4, "x": 0, "y": 1 },
+      "id": 1,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "title": "Virtual Users",
+      "type": "stat",
+      "targets": [{ "query": "SELECT last(\"value\") FROM \"vus\" WHERE $timeFilter", "rawQuery": true, "refId": "A", "resultFormat": "time_series" }]
+    },
+    {
+      "datasource": { "type": "influxdb", "uid": "" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "steps": [{ "color": "green", "value": null }] },
+          "unit": "reqps"
+        }
+      },
+      "gridPos": { "h": 5, "w": 4, "x": 4, "y": 1 },
+      "id": 2,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["mean"], "fields": "", "values": false }, "textMode": "auto" },
+      "title": "Requests/s",
+      "type": "stat",
+      "targets": [{ "query": "SELECT count(\"value\") / 10 FROM \"http_reqs\" WHERE $timeFilter GROUP BY time(10s) fill(0)", "rawQuery": true, "refId": "A", "resultFormat": "time_series" }]
+    },
+    {
+      "datasource": { "type": "influxdb", "uid": "" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 500 }, { "color": "red", "value": 2000 }] },
+          "unit": "ms"
+        }
+      },
+      "gridPos": { "h": 5, "w": 4, "x": 8, "y": 1 },
+      "id": 3,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["mean"], "fields": "", "values": false }, "textMode": "auto" },
+      "title": "Avg Response Time",
+      "type": "stat",
+      "targets": [{ "query": "SELECT mean(\"value\") FROM \"http_req_duration\" WHERE $timeFilter", "rawQuery": true, "refId": "A", "resultFormat": "time_series" }]
+    },
+    {
+      "datasource": { "type": "influxdb", "uid": "" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1000 }, { "color": "red", "value": 3000 }] },
+          "unit": "ms"
+        }
+      },
+      "gridPos": { "h": 5, "w": 4, "x": 12, "y": 1 },
+      "id": 4,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "title": "p95 Response Time",
+      "type": "stat",
+      "targets": [{ "query": "SELECT percentile(\"value\", 95) FROM \"http_req_duration\" WHERE $timeFilter", "rawQuery": true, "refId": "A", "resultFormat": "time_series" }]
+    },
+    {
+      "datasource": { "type": "influxdb", "uid": "" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 0.01 }, { "color": "red", "value": 0.05 }] },
+          "unit": "percentunit"
+        }
+      },
+      "gridPos": { "h": 5, "w": 4, "x": 16, "y": 1 },
+      "id": 5,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["mean"], "fields": "", "values": false }, "textMode": "auto" },
+      "title": "Error Rate",
+      "type": "stat",
+      "targets": [{ "query": "SELECT mean(\"value\") FROM \"http_req_failed\" WHERE $timeFilter", "rawQuery": true, "refId": "A", "resultFormat": "time_series" }]
+    },
+    {
+      "datasource": { "type": "influxdb", "uid": "" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 5, "w": 4, "x": 20, "y": 1 },
+      "id": 6,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false }, "textMode": "auto" },
+      "title": "Total Requests",
+      "type": "stat",
+      "targets": [{ "query": "SELECT count(\"value\") FROM \"http_reqs\" WHERE $timeFilter", "rawQuery": true, "refId": "A", "resultFormat": "time_series" }]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 },
+      "id": 101,
+      "title": "Virtual Users & Throughput",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "influxdb", "uid": "" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "custom": { "fillOpacity": 20, "lineWidth": 2 }, "unit": "short" }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 7 },
+      "id": 10,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "title": "Virtual Users",
+      "type": "timeseries",
+      "targets": [
+        { "alias": "VUs", "query": "SELECT last(\"value\") FROM \"vus\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)", "rawQuery": true, "refId": "A", "resultFormat": "time_series" },
+        { "alias": "Max VUs", "query": "SELECT last(\"value\") FROM \"vus_max\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)", "rawQuery": true, "refId": "B", "resultFormat": "time_series" }
+      ]
+    },
+    {
+      "datasource": { "type": "influxdb", "uid": "" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "custom": { "fillOpacity": 20, "lineWidth": 2 }, "unit": "reqps" }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 7 },
+      "id": 11,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "title": "Requests per Second",
+      "type": "timeseries",
+      "targets": [
+        { "alias": "req/s", "query": "SELECT count(\"value\") FROM \"http_reqs\" WHERE $timeFilter GROUP BY time(5s) fill(0)", "rawQuery": true, "refId": "A", "resultFormat": "time_series" }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 },
+      "id": 102,
+      "title": "Response Times",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "influxdb", "uid": "" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "custom": { "fillOpacity": 10, "lineWidth": 2 }, "unit": "ms" }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "id": 20,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "title": "Response Time Trends",
+      "type": "timeseries",
+      "targets": [
+        { "alias": "avg", "query": "SELECT mean(\"value\") FROM \"http_req_duration\" WHERE $timeFilter GROUP BY time($__interval) fill(null)", "rawQuery": true, "refId": "A", "resultFormat": "time_series" },
+        { "alias": "p90", "query": "SELECT percentile(\"value\", 90) FROM \"http_req_duration\" WHERE $timeFilter GROUP BY time($__interval) fill(null)", "rawQuery": true, "refId": "B", "resultFormat": "time_series" },
+        { "alias": "p95", "query": "SELECT percentile(\"value\", 95) FROM \"http_req_duration\" WHERE $timeFilter GROUP BY time($__interval) fill(null)", "rawQuery": true, "refId": "C", "resultFormat": "time_series" },
+        { "alias": "p99", "query": "SELECT percentile(\"value\", 99) FROM \"http_req_duration\" WHERE $timeFilter GROUP BY time($__interval) fill(null)", "rawQuery": true, "refId": "D", "resultFormat": "time_series" }
+      ]
+    },
+    {
+      "datasource": { "type": "influxdb", "uid": "" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "custom": { "fillOpacity": 10, "lineWidth": 2 }, "unit": "ms" }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "id": 21,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "title": "Response Time by Endpoint",
+      "type": "timeseries",
+      "targets": [
+        { "alias": "GET /users", "query": "SELECT mean(\"value\") FROM \"http_req_duration\" WHERE \"name\" = 'https://reqres.in/api/users?page=1' AND $timeFilter GROUP BY time($__interval) fill(null)", "rawQuery": true, "refId": "A", "resultFormat": "time_series" },
+        { "alias": "POST /users", "query": "SELECT mean(\"value\") FROM \"http_req_duration\" WHERE \"name\" =~ /\\/api\\/users$/ AND \"method\" = 'POST' AND $timeFilter GROUP BY time($__interval) fill(null)", "rawQuery": true, "refId": "B", "resultFormat": "time_series" },
+        { "alias": "POST /login", "query": "SELECT mean(\"value\") FROM \"http_req_duration\" WHERE \"name\" =~ /\\/api\\/login/ AND $timeFilter GROUP BY time($__interval) fill(null)", "rawQuery": true, "refId": "C", "resultFormat": "time_series" }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 24 },
+      "id": 103,
+      "title": "Errors & Checks",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "influxdb", "uid": "" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "custom": { "fillOpacity": 30, "lineWidth": 2 }, "unit": "percentunit" }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 25 },
+      "id": 30,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "title": "Error Rate over Time",
+      "type": "timeseries",
+      "targets": [
+        { "alias": "HTTP Failures", "query": "SELECT mean(\"value\") FROM \"http_req_failed\" WHERE $timeFilter GROUP BY time($__interval) fill(null)", "rawQuery": true, "refId": "A", "resultFormat": "time_series" },
+        { "alias": "Custom Errors", "query": "SELECT mean(\"value\") FROM \"errors\" WHERE $timeFilter GROUP BY time($__interval) fill(null)", "rawQuery": true, "refId": "B", "resultFormat": "time_series" }
+      ]
+    },
+    {
+      "datasource": { "type": "influxdb", "uid": "" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "custom": { "fillOpacity": 20, "lineWidth": 2 }, "unit": "short" }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 25 },
+      "id": 31,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "title": "Checks (Pass/Fail)",
+      "type": "timeseries",
+      "targets": [
+        { "alias": "Passed", "query": "SELECT count(\"value\") FROM \"checks\" WHERE \"value\" = 1 AND $timeFilter GROUP BY time($__interval) fill(0)", "rawQuery": true, "refId": "A", "resultFormat": "time_series" },
+        { "alias": "Failed", "query": "SELECT count(\"value\") FROM \"checks\" WHERE \"value\" = 0 AND $timeFilter GROUP BY time($__interval) fill(0)", "rawQuery": true, "refId": "B", "resultFormat": "time_series" }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 33 },
+      "id": 104,
+      "title": "Network & Data Transfer",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "influxdb", "uid": "" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "custom": { "fillOpacity": 20, "lineWidth": 2 }, "unit": "Bps" }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 34 },
+      "id": 40,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "title": "Data Transfer Rate",
+      "type": "timeseries",
+      "targets": [
+        { "alias": "Data Received", "query": "SELECT sum(\"value\") FROM \"data_received\" WHERE $timeFilter GROUP BY time(5s) fill(0)", "rawQuery": true, "refId": "A", "resultFormat": "time_series" },
+        { "alias": "Data Sent", "query": "SELECT sum(\"value\") FROM \"data_sent\" WHERE $timeFilter GROUP BY time(5s) fill(0)", "rawQuery": true, "refId": "B", "resultFormat": "time_series" }
+      ]
+    },
+    {
+      "datasource": { "type": "influxdb", "uid": "" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "custom": { "fillOpacity": 10, "lineWidth": 2 }, "unit": "ms" }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 34 },
+      "id": 41,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "title": "HTTP Timing Breakdown",
+      "type": "timeseries",
+      "targets": [
+        { "alias": "DNS Lookup", "query": "SELECT mean(\"value\") FROM \"http_req_connecting\" WHERE $timeFilter GROUP BY time($__interval) fill(null)", "rawQuery": true, "refId": "A", "resultFormat": "time_series" },
+        { "alias": "TLS Handshake", "query": "SELECT mean(\"value\") FROM \"http_req_tls_handshaking\" WHERE $timeFilter GROUP BY time($__interval) fill(null)", "rawQuery": true, "refId": "B", "resultFormat": "time_series" },
+        { "alias": "Sending", "query": "SELECT mean(\"value\") FROM \"http_req_sending\" WHERE $timeFilter GROUP BY time($__interval) fill(null)", "rawQuery": true, "refId": "C", "resultFormat": "time_series" },
+        { "alias": "Waiting (TTFB)", "query": "SELECT mean(\"value\") FROM \"http_req_waiting\" WHERE $timeFilter GROUP BY time($__interval) fill(null)", "rawQuery": true, "refId": "D", "resultFormat": "time_series" },
+        { "alias": "Receiving", "query": "SELECT mean(\"value\") FROM \"http_req_receiving\" WHERE $timeFilter GROUP BY time($__interval) fill(null)", "rawQuery": true, "refId": "E", "resultFormat": "time_series" }
+      ]
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": ["k6", "performance", "load-testing"],
+  "templating": { "list": [] },
+  "time": { "from": "now-15m", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "k6 Load Testing Dashboard",
+  "uid": "k6-load-testing",
+  "version": 1
+}
