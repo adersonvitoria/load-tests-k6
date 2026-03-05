@@ -5,9 +5,14 @@ import { Rate, Trend } from 'k6/metrics';
 const errorRate = new Rate('errors');
 const spikeResponseTime = new Trend('spike_response_time', true);
 
+function normalizeDuration(val, fallback) {
+  if (!val) return fallback;
+  return /^\d+$/.test(val) ? val + 'm' : val;
+}
+
 const SPIKE_VUS = parseInt(__ENV.K6_VUS) || 500;
 const BASELINE_VUS = Math.max(Math.floor(SPIKE_VUS * 0.02), 5);
-const DURATION = __ENV.K6_DURATION || '1m';
+const DURATION = normalizeDuration(__ENV.K6_DURATION, '1m');
 
 export const options = {
   stages: [

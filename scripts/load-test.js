@@ -9,9 +9,14 @@ const createUserDuration = new Trend('create_user_duration', true);
 const loginDuration = new Trend('login_duration', true);
 const totalRequests = new Counter('total_requests');
 
+function normalizeDuration(val, fallback) {
+  if (!val) return fallback;
+  return /^\d+$/.test(val) ? val + 'm' : val;
+}
+
 const VUS = parseInt(__ENV.K6_VUS) || 500;
-const DURATION = __ENV.K6_DURATION || '3m';
-const RAMP_UP = __ENV.K6_RAMP_UP || '30s';
+const DURATION = normalizeDuration(__ENV.K6_DURATION, '3m');
+const RAMP_UP = normalizeDuration(__ENV.K6_RAMP_UP, '30s');
 
 export const options = {
   stages: [

@@ -19,7 +19,7 @@ on:
         required: false
         default: ''
       duration:
-        description: 'Duração do teste (ex: 5m, 10m)'
+        description: 'Duração do teste (ex: 5m, 10m). Número sem unidade = minutos'
         required: false
         default: ''
       base_url:

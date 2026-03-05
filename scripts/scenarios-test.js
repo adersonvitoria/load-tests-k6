@@ -7,10 +7,15 @@ const browsingDuration = new Trend('browsing_duration', true);
 const apiCallDuration = new Trend('api_call_duration', true);
 const totalRequests = new Counter('total_requests');
 
+function normalizeDuration(val, fallback) {
+  if (!val) return fallback;
+  return /^\d+$/.test(val) ? val + 'm' : val;
+}
+
 const BASE_URL = __ENV.K6_BASE_URL || __ENV.BASE_URL || 'https://reqres.in/api';
 const RATE = parseInt(__ENV.K6_RATE) || 20;
-const DURATION = __ENV.K6_DURATION || '3m';
-const RAMP_UP = __ENV.K6_RAMP_UP || '1m';
+const DURATION = normalizeDuration(__ENV.K6_DURATION, '3m');
+const RAMP_UP = normalizeDuration(__ENV.K6_RAMP_UP, '1m');
 
 const HEADERS = {
   'Content-Type': 'application/json',
