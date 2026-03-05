@@ -88,8 +88,8 @@ jobs:
             --out json=reports/load-test-latest.json \
             -e REQRES_API_KEY=${{ env.REQRES_KEY }} \
             -e K6_BASE_URL=${{ env.K6_BASE_URL }} \
-            -e K6_VUS=${{ github.event_name == 'schedule' && '50' || env.K6_VUS }} \
-            -e K6_DURATION=${{ github.event_name == 'schedule' && '1m' || env.K6_DURATION }} \
+            -e K6_VUS=${{ github.event_name == 'schedule' && '500' || env.K6_VUS }} \
+            -e K6_DURATION=${{ github.event_name == 'schedule' && '5m' || env.K6_DURATION }} \
             -e K6_RAMP_UP=${{ env.K6_RAMP_UP }} \
             scripts/load-test.js
 
