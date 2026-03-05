@@ -36,7 +36,7 @@ on:
         default: ''
 
   schedule:
-    - cron: '55 17 * * *'
+    - cron: '0 6 * * 1-5'
 
 permissions:
   contents: read
