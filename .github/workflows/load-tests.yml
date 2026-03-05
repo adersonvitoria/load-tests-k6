@@ -38,6 +38,15 @@ on:
   schedule:
     - cron: '0 15 * * *'
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 env:
   K6_BASE_URL: ${{ github.event.inputs.base_url || 'https://reqres.in/api' }}
   K6_VUS: ${{ github.event.inputs.vus || '' }}
@@ -157,6 +166,12 @@ jobs:
           path: allure-report/
           retention-days: 30
 
+      - name: Upload Pages artifact
+        if: always()
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: allure-report/
+
       - name: Quality Gate - Threshold Validation
         if: always()
         run: |
@@ -197,8 +212,23 @@ jobs:
 
           if [ "$GATE_FAILED" == "true" ]; then
             echo "RESULT: PIPELINE BLOCKED - One or more performance thresholds were not met."
-            echo "Review the Allure Report artifact for detailed analysis."
+            echo "Review the Allure Report at: https://adersonvitoria.github.io/load-tests-k6/"
             exit 1
           else
             echo "RESULT: PIPELINE APPROVED - All performance thresholds passed."
+            echo "View full report at: https://adersonvitoria.github.io/load-tests-k6/"
           fi
+
+  deploy-report:
+    needs: performance-tests
+    if: always()
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
