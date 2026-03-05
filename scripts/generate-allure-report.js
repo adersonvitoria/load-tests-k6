@@ -411,7 +411,7 @@ if (totalResults > 0) {
       '# ou\n' +
       'winget install k6 --source winget\n\n' +
       '# Executar teste de carga\n' +
-      'k6 run -e REQRES_API_KEY=sua_key scripts/load-test.js\n\n' +
+      'k6 run -e REQRES_API_KEY=reqres_7b4880206ffa4e6b8429a7291998c7c5 scripts/load-test.js\n\n' +
       '# Gerar relatório Allure\n' +
       'npm run allure:generate\n' +
       '```',

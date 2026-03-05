@@ -53,7 +53,7 @@ docker-compose up -d
 ```bash
 # Load test com métricas sendo enviadas ao InfluxDB
 k6 run --out influxdb=http://localhost:8086/k6 \
-  -e REQRES_API_KEY=sua_key \
+  -e REQRES_API_KEY=reqres_7b4880206ffa4e6b8429a7291998c7c5 \
   scripts/load-test.js
 ```
 
@@ -105,7 +105,7 @@ global:
 k6 run --out experimental-prometheus-rw \
   -e K6_PROMETHEUS_RW_SERVER_URL=http://localhost:9090/api/v1/write \
   -e K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM=true \
-  -e REQRES_API_KEY=sua_key \
+  -e REQRES_API_KEY=reqres_7b4880206ffa4e6b8429a7291998c7c5 \
   scripts/load-test.js
 ```
 
@@ -162,7 +162,7 @@ k6 run --out experimental-prometheus-rw \
   -e K6_PROMETHEUS_RW_USERNAME=seu_user_id \
   -e K6_PROMETHEUS_RW_PASSWORD=seu_api_token \
   -e K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM=true \
-  -e REQRES_API_KEY=sua_key \
+  -e REQRES_API_KEY=reqres_7b4880206ffa4e6b8429a7291998c7c5 \
   scripts/load-test.js
 ```
 

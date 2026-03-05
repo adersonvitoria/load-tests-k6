@@ -104,11 +104,11 @@ Todos os scripts suportam parametrização via variáveis de ambiente, permitind
 ```bash
 # Load test com 200 VUs por 2 minutos apontando para outra API
 k6 run -e K6_VUS=200 -e K6_DURATION=2m -e K6_BASE_URL=https://minha-api.com/api \
-  -e REQRES_API_KEY=sua_key scripts/load-test.js
+  -e REQRES_API_KEY=reqres_7b4880206ffa4e6b8429a7291998c7c5 scripts/load-test.js
 
 # Scenarios test com throughput de 50 req/s
 k6 run -e K6_RATE=50 -e K6_DURATION=5m \
-  -e REQRES_API_KEY=sua_key scripts/scenarios-test.js
+  -e REQRES_API_KEY=reqres_7b4880206ffa4e6b8429a7291998c7c5 scripts/scenarios-test.js
 ```
 
 ## Como Executar os Testes
@@ -132,7 +132,7 @@ export REQRES_API_KEY="reqres_7b4880206ffa4e6b8429a7291998c7c5"
 ### Teste de Carga (VU-based)
 
 ```bash
-k6 run -e REQRES_API_KEY=sua_key scripts/load-test.js
+k6 run -e REQRES_API_KEY=reqres_7b4880206ffa4e6b8429a7291998c7c5 scripts/load-test.js
 ```
 
 Default: **500 VUs** por **3 minutos** com ramp-up gradual.
@@ -148,7 +148,7 @@ Default: **500 VUs** por **3 minutos** com ramp-up gradual.
 ### Teste de Estresse
 
 ```bash
-k6 run -e REQRES_API_KEY=sua_key scripts/stress-test.js
+k6 run -e REQRES_API_KEY=reqres_7b4880206ffa4e6b8429a7291998c7c5 scripts/stress-test.js
 ```
 
 Escala progressivamente de 5% até **100%** do `K6_VUS` (default 2000) para encontrar o ponto de ruptura.
@@ -156,7 +156,7 @@ Escala progressivamente de 5% até **100%** do `K6_VUS` (default 2000) para enco
 ### Teste de Pico (Spike)
 
 ```bash
-k6 run -e REQRES_API_KEY=sua_key scripts/spike-test.js
+k6 run -e REQRES_API_KEY=reqres_7b4880206ffa4e6b8429a7291998c7c5 scripts/spike-test.js
 ```
 
 Simula um surto repentino de tráfego de baseline para pico (default 500 VUs em 10 segundos).
@@ -164,7 +164,7 @@ Simula um surto repentino de tráfego de baseline para pico (default 500 VUs em 
 ### Teste de Cenários (Arrival-Rate)
 
 ```bash
-k6 run -e REQRES_API_KEY=sua_key scripts/scenarios-test.js
+k6 run -e REQRES_API_KEY=reqres_7b4880206ffa4e6b8429a7291998c7c5 scripts/scenarios-test.js
 ```
 
 Utiliza executors avançados do k6 para modelar **throughput real** em vez de apenas VUs:
@@ -225,7 +225,7 @@ Se qualquer threshold do k6 falhar, o step do k6 retorna exit code != 0, quebran
 
 ```bash
 # 1. Executar o teste
-k6 run -e REQRES_API_KEY=sua_key scripts/load-test.js
+k6 run -e REQRES_API_KEY=reqres_7b4880206ffa4e6b8429a7291998c7c5 scripts/load-test.js
 
 # 2. Converter resultados para Allure + gerar relatório HTML
 npm run allure:generate
@@ -256,14 +256,14 @@ O projeto suporta exportação de métricas em tempo real para dashboards. Veja 
 **InfluxDB + Grafana (local):**
 ```bash
 k6 run --out influxdb=http://localhost:8086/k6 \
-  -e REQRES_API_KEY=sua_key scripts/load-test.js
+  -e REQRES_API_KEY=reqres_7b4880206ffa4e6b8429a7291998c7c5 scripts/load-test.js
 ```
 
 **Prometheus Remote Write:**
 ```bash
 k6 run --out experimental-prometheus-rw \
   -e K6_PROMETHEUS_RW_SERVER_URL=http://localhost:9090/api/v1/write \
-  -e REQRES_API_KEY=sua_key scripts/load-test.js
+  -e REQRES_API_KEY=reqres_7b4880206ffa4e6b8429a7291998c7c5 scripts/load-test.js
 ```
 
 **Grafana Cloud:**
@@ -272,7 +272,7 @@ k6 run --out experimental-prometheus-rw \
   -e K6_PROMETHEUS_RW_SERVER_URL=https://prometheus-prod-xx.grafana.net/api/prom/push \
   -e K6_PROMETHEUS_RW_USERNAME=seu_user_id \
   -e K6_PROMETHEUS_RW_PASSWORD=seu_token \
-  -e REQRES_API_KEY=sua_key scripts/load-test.js
+  -e REQRES_API_KEY=reqres_7b4880206ffa4e6b8429a7291998c7c5 scripts/load-test.js
 ```
 
 ## Métricas Monitoradas
