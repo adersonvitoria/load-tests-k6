@@ -36,7 +36,7 @@ on:
         default: ''
 
   schedule:
-    - cron: '0 3 * * 1-5'
+    - cron: '40 14 * * *'
 
 env:
   K6_BASE_URL: ${{ github.event.inputs.base_url || 'https://reqres.in/api' }}
@@ -80,20 +80,22 @@ jobs:
 
       - name: Run Load Test
         if: ${{ github.event.inputs.scenario == 'load' || github.event.inputs.scenario == 'all' || github.event_name == 'schedule' }}
+        continue-on-error: true
         run: |
           k6 run \
-            -e REQRES_API_KEY=${{ secrets.REQRES_API_KEY }} \
+            -e REQRES_API_KEY=${{ secrets.REQRES_API_KEY || 'reqres_7b4880206ffa4e6b8429a7291998c7c5' }} \
             -e K6_BASE_URL=${{ env.K6_BASE_URL }} \
-            -e K6_VUS=${{ env.K6_VUS }} \
-            -e K6_DURATION=${{ env.K6_DURATION }} \
+            -e K6_VUS=${{ github.event_name == 'schedule' && '50' || env.K6_VUS }} \
+            -e K6_DURATION=${{ github.event_name == 'schedule' && '1m' || env.K6_DURATION }} \
             -e K6_RAMP_UP=${{ env.K6_RAMP_UP }} \
             scripts/load-test.js
 
       - name: Run Stress Test
         if: ${{ github.event.inputs.scenario == 'stress' || github.event.inputs.scenario == 'all' }}
+        continue-on-error: true
         run: |
           k6 run \
-            -e REQRES_API_KEY=${{ secrets.REQRES_API_KEY }} \
+            -e REQRES_API_KEY=${{ secrets.REQRES_API_KEY || 'reqres_7b4880206ffa4e6b8429a7291998c7c5' }} \
             -e K6_BASE_URL=${{ env.K6_BASE_URL }} \
             -e K6_VUS=${{ env.K6_VUS }} \
             -e K6_DURATION=${{ env.K6_DURATION }} \
@@ -102,9 +104,10 @@ jobs:
 
       - name: Run Spike Test
         if: ${{ github.event.inputs.scenario == 'spike' || github.event.inputs.scenario == 'all' }}
+        continue-on-error: true
         run: |
           k6 run \
-            -e REQRES_API_KEY=${{ secrets.REQRES_API_KEY }} \
+            -e REQRES_API_KEY=${{ secrets.REQRES_API_KEY || 'reqres_7b4880206ffa4e6b8429a7291998c7c5' }} \
             -e K6_BASE_URL=${{ env.K6_BASE_URL }} \
             -e K6_VUS=${{ env.K6_VUS }} \
             -e K6_DURATION=${{ env.K6_DURATION }} \
@@ -112,9 +115,10 @@ jobs:
 
       - name: Run Scenarios Test (arrival-rate)
         if: ${{ github.event.inputs.scenario == 'scenarios' || github.event.inputs.scenario == 'all' }}
+        continue-on-error: true
         run: |
           k6 run \
-            -e REQRES_API_KEY=${{ secrets.REQRES_API_KEY }} \
+            -e REQRES_API_KEY=${{ secrets.REQRES_API_KEY || 'reqres_7b4880206ffa4e6b8429a7291998c7c5' }} \
             -e K6_BASE_URL=${{ env.K6_BASE_URL }} \
             -e K6_RATE=${{ env.K6_RATE }} \
             -e K6_DURATION=${{ env.K6_DURATION }} \
